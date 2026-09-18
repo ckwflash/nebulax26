@@ -1,0 +1,35 @@
+{
+  "mode": "hosted",
+  "started_at": "2026-09-18T14:17:39.164194+00:00",
+  "budget_seconds": 300,
+  "url": "https://nightshift-717753975344.us-central1.run.app",
+  "local_solver_threads": null,
+  "runs": [
+    {
+      "dataset": "09_double_network",
+      "scenario": "C",
+      "passed": true,
+      "run_id": "d3ad1a25b3cb4075ba3bd790035e44a8",
+      "wall_seconds": null,
+      "score": 50.4,
+      "bound": 50.4,
+      "coverage": 100.0,
+      "optimal": true,
+      "proven_infeasible": false,
+      "primary_optimal": true,
+      "independent_expected_score": 50.4,
+      "solver_status": "OPTIMAL",
+      "elapsed_seconds": 93.98,
+      "initial_poll_failure": "HTTPStatusError: Client error '404 Not Found' for url 'https://nightshift-717753975344.us-central1.run.app/api/runs/d3ad1a25b3cb4075ba3bd790035e44a8'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "initial_poll_wall_seconds": 15.06
+    }
+  ],
+  "health": {
+    "ok": true,
+    "validation": "local",
+    "chat_configured": true,
+    "chat_provider": "vertex",
+    "chat_model": "gemini-3.8-flash"
+  },
+  "note": "Initial polling failed with a transient 404; later retrieval confirmed this same run completed optimally. See initial-poll-failure.json. A separate post-fix run is required to verify polling."
+}

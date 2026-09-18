@@ -1,0 +1,10 @@
+{
+  "instance_id": "451338cf56de8d2c",
+  "solver_status": "INFEASIBLE",
+  "elapsed_seconds": 0.0,
+  "solutions": 0,
+  "model_bound": null,
+  "validation": null,
+  "interpretation": "Local conservative temporal-witness model. Official validator unavailable.",
+  "message": "No schedule satisfies this local model and the selected policy. Review the constraints; no workload has been dropped."
+}

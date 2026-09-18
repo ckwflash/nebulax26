@@ -1,0 +1,295 @@
+{
+  "version": 1,
+  "seed": 20260918,
+  "authority": "local model; official validator unavailable",
+  "cases": [
+    {
+      "slug": "01_slack_baseline",
+      "title": "Slack baseline",
+      "expected": {
+        "A": {
+          "feasible": true,
+          "score": 0
+        },
+        "B": {
+          "feasible": true,
+          "score": 0
+        },
+        "C": {
+          "feasible": true,
+          "score": 0
+        }
+      },
+      "oracle": "analytic",
+      "proof": "All jobs can finish in weeks 1\u20132 without extra supply or ECLO. Scores are nonnegative, so zero is optimal.",
+      "features": [
+        "zero-cost baseline",
+        "two lines",
+        "full workload"
+      ],
+      "activities": 3,
+      "contracts": 3,
+      "workload": 6,
+      "zip_sha256": "6263e0bc16567f658469a59c6f7d76bb62b96c50ccaf4e5cc9b8d97ec049c614"
+    },
+    {
+      "slug": "02_eclo_deadline",
+      "title": "ECLO versus deadline slip",
+      "expected": {
+        "A": {
+          "feasible": true,
+          "score": 70
+        },
+        "B": {
+          "feasible": true,
+          "score": 10
+        },
+        "C": {
+          "feasible": true,
+          "score": 10
+        }
+      },
+      "oracle": "analytic",
+      "proof": "Three units require three standard weeks: A incurs 7 days \u00d7 P2 weight 10 = 70. Two ECLO accesses deliver exactly three units by week 2 for cost 10 in B/C.",
+      "features": [
+        "ECLO yield",
+        "deadline",
+        "scenario trade-off"
+      ],
+      "activities": 1,
+      "contracts": 1,
+      "workload": 3,
+      "zip_sha256": "21d0158c2cc6e448d517cf12b36fec047f877d960c316b0b82fe804ddedb882f"
+    },
+    {
+      "slug": "03_sharing_limit",
+      "title": "Five compatible jobs, four sharing places",
+      "expected": {
+        "A": {
+          "feasible": true,
+          "score": 70
+        },
+        "B": {
+          "feasible": true,
+          "score": 21
+        },
+        "C": {
+          "feasible": true,
+          "score": 21
+        }
+      },
+      "oracle": "analytic",
+      "proof": "Only four jobs fit a possession. A delays one job one week (70). B/C buy a second possession at one sector and two platforms: 3 \u00d7 7 = 21.",
+      "features": [
+        "sharing limit of four",
+        "location accounting",
+        "supply congestion"
+      ],
+      "activities": 5,
+      "contracts": 5,
+      "workload": 5,
+      "zip_sha256": "173649cbe5105278aae2ce7e173fd82063ab02c083d5b777ba59e2f3e682a23e"
+    },
+    {
+      "slug": "04_exclusive_mixes",
+      "title": "PM isolation and PC incompatibility",
+      "expected": {
+        "A": {
+          "feasible": true,
+          "score": 210
+        },
+        "B": {
+          "feasible": true,
+          "score": 42
+        },
+        "C": {
+          "feasible": true,
+          "score": 91
+        }
+      },
+      "oracle": "analytic",
+      "proof": "The three jobs require separate possessions. A completes in weeks 1/2/3: (0+7+14) \u00d7 10 = 210. B buys two extra possessions at three locations (42). C permits one extra: two jobs in week 1 and one in week 2 cost 21+70=91.",
+      "features": [
+        "PM exclusive",
+        "PC cannot share with PC",
+        "C excess cap"
+      ],
+      "activities": 3,
+      "contracts": 3,
+      "workload": 3,
+      "zip_sha256": "790d1070ecd1e8871d8b8b44691ea6828b4e49b97fc126f453d9639b6746acea"
+    },
+    {
+      "slug": "05_predecessor_chain",
+      "title": "Cross-contract strict precedence",
+      "expected": {
+        "A": {
+          "feasible": true,
+          "score": 0
+        },
+        "B": {
+          "feasible": true,
+          "score": 0
+        },
+        "C": {
+          "feasible": true,
+          "score": 0
+        }
+      },
+      "oracle": "analytic",
+      "proof": "A501 takes weeks 1\u20132, A502 weeks 3\u20134, A503 week 5. This meets each deadline with zero cost. Every successor must start in a strictly later week.",
+      "features": [
+        "FS+0",
+        "cross-contract references",
+        "boundary dates"
+      ],
+      "activities": 3,
+      "contracts": 3,
+      "workload": 5,
+      "zip_sha256": "943798c9af648fb6f88a47257d6caa4da9fae82044d65fdc44f62a03b1473309"
+    },
+    {
+      "slug": "06_live_interchange",
+      "title": "Live protection through an interchange",
+      "expected": {
+        "A": {
+          "feasible": true,
+          "score": 0
+        },
+        "B": {
+          "feasible": true,
+          "score": 0
+        },
+        "C": {
+          "feasible": true,
+          "score": 0
+        }
+      },
+      "oracle": "analytic",
+      "proof": "Two different opportunities in week 1 deliver both jobs without ECLO or excess. Their mirrored cross-line protection intersects, so assigning the same opportunity must be rejected.",
+      "features": [
+        "opposite-bound mirror",
+        "cross-line protection",
+        "timing witness"
+      ],
+      "activities": 2,
+      "contracts": 2,
+      "workload": 2,
+      "zip_sha256": "c3447fd4b2833335ca6b6c3deb5e0f2fe7e0c910236d1e4be2fb0dcbcdcdf42f"
+    },
+    {
+      "slug": "07_eclo_window",
+      "title": "Separated demand peaks on one line",
+      "expected": {
+        "A": {
+          "feasible": true,
+          "score": 140
+        },
+        "B": {
+          "feasible": true,
+          "score": 20
+        },
+        "C": {
+          "feasible": true,
+          "score": 80
+        }
+      },
+      "oracle": "analytic",
+      "proof": "A has two one-week P2 delays: 140. B uses ECLO in weeks 1/2 and 4/5 for 20. C can use only one two-week window on X: compress one job for 10 and delay the other for 70. ECLO on just one access cannot remove either delay.",
+      "features": [
+        "C continuity window",
+        "two demand peaks",
+        "B versus C"
+      ],
+      "activities": 2,
+      "contracts": 2,
+      "workload": 6,
+      "zip_sha256": "5e8bf0f4f5e7d86955b51136c0fdac7c89393d09c18f94214c26109ea02f3326"
+    },
+    {
+      "slug": "08_priority_pressure",
+      "title": "Public network with high-priority bottlenecks",
+      "expected": {
+        "A": {
+          "feasible": true,
+          "score": 2240.0
+        },
+        "B": {
+          "feasible": true,
+          "score": 30
+        },
+        "C": {
+          "feasible": true,
+          "score": 720.0
+        }
+      },
+      "oracle": "analytical A/C lower bounds; invariant B",
+      "proof": "Seed 20260918 changes only priority weights and promotes C006/C010 to P1. Feasibility is preserved. The resource-free standard-work A bound is 2240; B's objective is unchanged at 30. C permits at most two ECLO accesses per activity: independently minimizing each activity's delay plus 0/1/2 ECLO costs gives a resource-free lower bound of 720. Valid schedules attain both A/C bounds, proving optimality without relying on CP-SAT's status alone.",
+      "features": [
+        "54 activities",
+        "weighted priorities",
+        "realistic regression"
+      ],
+      "activities": 54,
+      "contracts": 14,
+      "workload": 192,
+      "zip_sha256": "18658ca6d1e0122bf154e64f337a71bc1cb0ef984fbaf2972ae7cac645d24168"
+    },
+    {
+      "slug": "09_double_network",
+      "title": "Two independent copies of the public network",
+      "expected": {
+        "A": {
+          "feasible": true,
+          "score": 50.4
+        },
+        "B": {
+          "feasible": true,
+          "score": 60
+        },
+        "C": {
+          "feasible": true,
+          "score": 50.4
+        }
+      },
+      "oracle": "compositional from certified public optima",
+      "proof": "Duplicate every identifier and network resource into two disjoint components. Each feasible solution restricts to a feasible original solution, and two original solutions combine. Scores add, so optima are exactly twice the certified public scores. This is a scale test, not a claim of doubled congestion.",
+      "features": [
+        "108 activities",
+        "384 work units",
+        "four lines",
+        "scale and separability"
+      ],
+      "activities": 108,
+      "contracts": 28,
+      "workload": 384,
+      "zip_sha256": "62a4c58438ac24889dd8faefbb1d024f3cb0ef9ae7d537d685f3bb5b58f43986"
+    },
+    {
+      "slug": "10_impossible_workload",
+      "title": "Impossible workload within the horizon",
+      "expected": {
+        "A": {
+          "feasible": false
+        },
+        "B": {
+          "feasible": false
+        },
+        "C": {
+          "feasible": false
+        }
+      },
+      "oracle": "analytic",
+      "proof": "One activity needs four units in two weeks. With at most one access per week, even ECLO can deliver only 2 \u00d7 1.5 = 3 units. All scenarios must report INFEASIBLE with no partial schedule or export.",
+      "features": [
+        "expected infeasibility",
+        "no dropped workload",
+        "export blocked"
+      ],
+      "activities": 1,
+      "contracts": 1,
+      "workload": 4,
+      "zip_sha256": "4f52d2fd5e8491f5b2dd5b13c512fd92f44429b39e9f600d50036e3d330e3e0b"
+    }
+  ]
+}

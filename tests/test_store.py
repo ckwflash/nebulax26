@@ -157,3 +157,50 @@ def test_invalid_key_rejected_before_backend_access(storage):
     with pytest.raises(ValueError):
         store.put('../escape', {})
     assert not bucket.objects
+
+
+def test_checkpoint_replacement_during_download_is_not_a_missing_run(storage, monkeypatch):
+    store, bucket, _ = storage
+    store.put('runs/job', {'status': 'running', 'progress': 1})
+    original = FakeBlob.download_as_bytes
+    calls = []
+
+    def replaced(blob, **kwargs):
+        calls.append(blob.generation)
+        if len(calls) == 1:
+            store.put('runs/job', {'status': 'running', 'progress': 2})
+            # GCS can return 404 for the old generation selected by reload().
+            raise NotFound('requested generation no longer exists')
+        return original(blob, **kwargs)
+
+    monkeypatch.setattr(FakeBlob, 'download_as_bytes', replaced)
+    assert store.get('runs/job') == {'status': 'running', 'progress': 2}
+    assert len(calls) == 2 and calls[0] != calls[1]
+
+
+def test_actual_deletion_during_download_is_confirmed_by_fresh_metadata(storage, monkeypatch):
+    store, bucket, _ = storage
+    store.put('runs/job', {'status': 'running'})
+
+    def deleted(blob, **kwargs):
+        del bucket.objects[blob.key]
+        raise NotFound('object was deleted')
+
+    monkeypatch.setattr(FakeBlob, 'download_as_bytes', deleted)
+    assert store.get('runs/job') is None
+
+
+@pytest.mark.parametrize('failure', [NotFound, PreconditionFailed])
+def test_continuous_generation_churn_returns_storage_error_not_false_absence(storage, monkeypatch, failure):
+    store, _, _ = storage
+    store.put('runs/job', {'status': 'running'})
+    attempts = []
+
+    def changed(blob, **kwargs):
+        attempts.append(blob.generation)
+        raise failure('generation changed during read')
+
+    monkeypatch.setattr(FakeBlob, 'download_as_bytes', changed)
+    with pytest.raises(StorageError, match='changed while reading'):
+        store.get('runs/job')
+    assert len(attempts) == 5

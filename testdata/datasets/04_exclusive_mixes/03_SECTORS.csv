@@ -1,0 +1,7 @@
+sector_id,line_code,from_station_id,to_station_id,seq,is_shared
+SEC:X:X0_H1,X,X0,H1,1,0
+SEC:X:H1_H2,X,H1,H2,2,1
+SEC:X:H2_X3,X,H2,X3,3,0
+SEC:Y:Y0_H1,Y,Y0,H1,1,0
+SEC:Y:H1_H2,Y,H1,H2,2,1
+SEC:Y:H2_Y3,Y,H2,Y3,3,0

@@ -1,0 +1,9 @@
+station_id,line_code,seq,is_interchange
+X0,X,1,0
+H1,X,2,1
+H2,X,3,1
+X3,X,4,0
+Y0,Y,1,0
+H1,Y,2,1
+H2,Y,3,1
+Y3,Y,4,0

@@ -3,9 +3,9 @@
   "project": "qwiklabs-gcp-00-71d4c677d0cc",
   "region": "us-central1",
   "service": "nightshift",
-  "revision": "nightshift-00003-lah",
-  "image_digest": "sha256:bcb37a2d3831e9b6a7b283b18f2053e9af976f27c11db119cd205d018e330950",
-  "build_id": "dab83326-39a6-4849-9212-bcd1babe6a10",
+  "revision": "nightshift-00005-xil",
+  "image_digest": "sha256:d270c8e5ffc0ee4ec5aeea9dcd5e390b463fa296d91ebcdca51e9f8c6bc8c0a8",
+  "build_id": "d1328cb7-15b9-4f78-8106-aebe25d6837b",
   "public": true,
   "runtime": {
     "cpu": 2,
@@ -40,11 +40,11 @@
   },
   "official_validator_verified": false,
   "previous_release": {
-    "revision": "nightshift-00002-srz",
-    "image_digest": "sha256:03fcfec740630b5f13c6df437ecb75550269aa06c628245ba760aa0fc7a80ddc",
-    "build_id": "5cfb3bbc-a482-4d38-bb5b-a97b3b467ac9"
+    "revision": "nightshift-00003-lah",
+    "image_digest": "sha256:bcb37a2d3831e9b6a7b283b18f2053e9af976f27c11db119cd205d018e330950",
+    "build_id": "dab83326-39a6-4849-9212-bcd1babe6a10"
   },
-  "tests_passed": 190,
+  "tests_passed": 212,
   "chat": {
     "provider": "vertex",
     "model": "gemini-3.8-flash",
@@ -105,5 +105,57 @@
         "uploaded_csv_header": false
       }
     }
+  },
+  "release_history": [
+    {
+      "revision": "nightshift-00002-srz",
+      "image_digest": "sha256:03fcfec740630b5f13c6df437ecb75550269aa06c628245ba760aa0fc7a80ddc",
+      "build_id": "5cfb3bbc-a482-4d38-bb5b-a97b3b467ac9"
+    }
+  ],
+  "dataset_verification": {
+    "datasets": 10,
+    "local_checks_passed": 30,
+    "hosted_checks_passed": 30,
+    "feasible_results_with_expected_optimal_score": 54,
+    "expected_infeasible_results": 6,
+    "report": "testdata/TEST_RESULTS.md",
+    "post_fix_run": {
+      "dataset": "09_double_network",
+      "scenario": "C",
+      "passed": true,
+      "run_id": "b82905d13c454ea9af82e903da4535aa",
+      "solver_status": "OPTIMAL",
+      "elapsed_seconds": 53.7,
+      "score": 50.4,
+      "bound": 50.4,
+      "coverage": 100.0,
+      "optimal": true,
+      "proven_infeasible": false,
+      "primary_optimal": true,
+      "independent_expected_score": 50.4,
+      "export_verified": true,
+      "wall_seconds": 56.05
+    },
+    "public_smoke": {
+      "public_root": true,
+      "health": {
+        "ok": true,
+        "validation": "local",
+        "chat_configured": true,
+        "chat_provider": "vertex",
+        "chat_model": "gemini-3.8-flash"
+      },
+      "saved_run_survived_promotion": true,
+      "score": 50.4,
+      "coverage": 100,
+      "genuine_missing_run_http": 404
+    }
+  },
+  "storage_generation_race_regression": {
+    "replaced": true,
+    "old_generation_returned_404": true,
+    "downloads": 2,
+    "fixed_read_returned_current_checkpoint": true
   }
 }

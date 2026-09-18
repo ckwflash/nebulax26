@@ -1,0 +1,211 @@
+{
+  "instance_id": "cad6a2bd54a04c3f",
+  "solver_status": "OPTIMAL",
+  "elapsed_seconds": 0.05,
+  "solutions": 2,
+  "model_bound": 0,
+  "validation": {
+    "scenario": "A",
+    "feasible": true,
+    "structurally_valid": true,
+    "safety_verified": true,
+    "validation_authority": "local",
+    "rule_version": "ps1-local-1.0",
+    "hard_violations": [],
+    "warnings": [],
+    "score": 0.0,
+    "coverage_percent": 100.0,
+    "completed_activities": 3,
+    "total_activities": 3,
+    "soft_scores": {
+      "priority_weighted_score": 0.0,
+      "overrun_days_total": 0,
+      "contracts_overrunning": 0,
+      "priority_overrun": {
+        "1": 0,
+        "2": 0,
+        "3": 0
+      },
+      "excess_access_nights_total": 0,
+      "eclo_nights_total": 0
+    },
+    "contracts": [
+      {
+        "contract_number": "C101",
+        "completion_week": 2,
+        "simulated_completion_date": "2027-01-17",
+        "planned_completion_date": "2027-01-31",
+        "overrun_days": 0,
+        "priority": 2,
+        "evidence_id": "contract:C101"
+      },
+      {
+        "contract_number": "C102",
+        "completion_week": 2,
+        "simulated_completion_date": "2027-01-17",
+        "planned_completion_date": "2027-01-31",
+        "overrun_days": 0,
+        "priority": 2,
+        "evidence_id": "contract:C102"
+      },
+      {
+        "contract_number": "C103",
+        "completion_week": 2,
+        "simulated_completion_date": "2027-01-17",
+        "planned_completion_date": "2027-01-31",
+        "overrun_days": 0,
+        "priority": 2,
+        "evidence_id": "contract:C103"
+      }
+    ],
+    "capacity": [
+      {
+        "location_id": "PLAT:X:H1:EB",
+        "week": 1,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:X:H1:EB:1"
+      },
+      {
+        "location_id": "PLAT:X:H1:EB",
+        "week": 2,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:X:H1:EB:2"
+      },
+      {
+        "location_id": "PLAT:X:H2:WB",
+        "week": 1,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:X:H2:WB:1"
+      },
+      {
+        "location_id": "PLAT:X:H2:WB",
+        "week": 2,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:X:H2:WB:2"
+      },
+      {
+        "location_id": "PLAT:X:X0:EB",
+        "week": 1,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:X:X0:EB:1"
+      },
+      {
+        "location_id": "PLAT:X:X0:EB",
+        "week": 2,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:X:X0:EB:2"
+      },
+      {
+        "location_id": "PLAT:X:X3:WB",
+        "week": 1,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:X:X3:WB:1"
+      },
+      {
+        "location_id": "PLAT:X:X3:WB",
+        "week": 2,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:X:X3:WB:2"
+      },
+      {
+        "location_id": "PLAT:Y:H1:EB",
+        "week": 1,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:Y:H1:EB:1"
+      },
+      {
+        "location_id": "PLAT:Y:H1:EB",
+        "week": 2,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:Y:H1:EB:2"
+      },
+      {
+        "location_id": "PLAT:Y:Y0:EB",
+        "week": 1,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:Y:Y0:EB:1"
+      },
+      {
+        "location_id": "PLAT:Y:Y0:EB",
+        "week": 2,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:Y:Y0:EB:2"
+      },
+      {
+        "location_id": "SEC:X:H2_X3:WB",
+        "week": 1,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:X:H2_X3:WB:1"
+      },
+      {
+        "location_id": "SEC:X:H2_X3:WB",
+        "week": 2,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:X:H2_X3:WB:2"
+      },
+      {
+        "location_id": "SEC:X:X0_H1:EB",
+        "week": 1,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:X:X0_H1:EB:1"
+      },
+      {
+        "location_id": "SEC:X:X0_H1:EB",
+        "week": 2,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:X:X0_H1:EB:2"
+      },
+      {
+        "location_id": "SEC:Y:Y0_H1:EB",
+        "week": 1,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:Y:Y0_H1:EB:1"
+      },
+      {
+        "location_id": "SEC:Y:Y0_H1:EB",
+        "week": 2,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:Y:Y0_H1:EB:2"
+      }
+    ],
+    "eclo_windows": {},
+    "sharing_saved": 0
+  },
+  "interpretation": "Local conservative temporal-witness model. Official validator unavailable."
+}

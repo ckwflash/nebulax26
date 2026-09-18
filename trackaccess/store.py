@@ -50,12 +50,18 @@ class Store:
                 blob = self.bucket.blob(f"{key}.json")
                 try:
                     blob.reload(timeout=10, retry=GCS_RETRY)
-                    version = int(blob.generation)
-                    content = blob.download_as_bytes(if_generation_match=version, timeout=10, retry=GCS_RETRY)
-                    return json.loads(content), version
                 except NotFound:
                     return None, 0
-                except PreconditionFailed:
+                except GoogleAPIError as exc:
+                    raise StorageError("Durable storage is unavailable. Please retry.") from exc
+                version = int(blob.generation)
+                try:
+                    content = blob.download_as_bytes(if_generation_match=version, timeout=10, retry=GCS_RETRY)
+                    return json.loads(content), version
+                except (NotFound, PreconditionFailed):
+                    # reload() pins the download to a generation. A concurrent
+                    # checkpoint replacement can remove that generation (404)
+                    # without removing the run. Re-read current metadata.
                     continue
                 except GoogleAPIError as exc:
                     raise StorageError("Durable storage is unavailable. Please retry.") from exc

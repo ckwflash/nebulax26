@@ -1,0 +1,3 @@
+contract_number,contract_description,contract_award_date,activity_type,nature_of_activity,contract_priority,contract_completion_date,planned_completion_date,number_of_workfronts,access_type,number_of_maximum_access_per_week
+C601,Synthetic test contract 601,2026-01-01,Renewal,Live,2,2027-01-10,2027-01-10,1,C,2
+C602,Synthetic test contract 602,2026-01-01,Renewal,Live,2,2027-01-10,2027-01-10,1,C,2

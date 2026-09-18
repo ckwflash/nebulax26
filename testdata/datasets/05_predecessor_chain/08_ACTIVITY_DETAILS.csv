@@ -1,0 +1,4 @@
+activity_id,contract_number,activity_type,start_location_id,end_location_id,total_accesses,planned_start_date,predecessor_activity_id,activity_priority
+A501,C501,Renewal,SEC:X:X0_H1:EB,SEC:X:X0_H1:EB,2,2027-01-04,,3
+A502,C502,Renewal,SEC:X:X0_H1:EB,SEC:X:X0_H1:EB,2,2027-01-04,A501,3
+A503,C503,Renewal,SEC:X:X0_H1:EB,SEC:X:X0_H1:EB,1,2027-01-04,A502,3

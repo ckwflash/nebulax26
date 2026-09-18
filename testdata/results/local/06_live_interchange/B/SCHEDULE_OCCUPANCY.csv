@@ -1,0 +1,7 @@
+activity_id,week,location_id,co_share_group
+A601,1,PLAT:X:H1:EB,p7
+A601,1,PLAT:X:H2:EB,p7
+A601,1,SEC:X:H1_H2:EB,p7
+A602,1,PLAT:Y:H1:WB,p6
+A602,1,PLAT:Y:H2:WB,p6
+A602,1,SEC:Y:H1_H2:WB,p6

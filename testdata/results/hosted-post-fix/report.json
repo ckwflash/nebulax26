@@ -1,0 +1,34 @@
+{
+  "mode": "hosted",
+  "started_at": "2026-09-18T14:26:31.916647+00:00",
+  "budget_seconds": 300,
+  "url": "https://storage-check---nightshift-pr6kfk2gya-uc.a.run.app",
+  "local_solver_threads": null,
+  "runs": [
+    {
+      "dataset": "09_double_network",
+      "scenario": "C",
+      "passed": true,
+      "run_id": "b82905d13c454ea9af82e903da4535aa",
+      "solver_status": "OPTIMAL",
+      "elapsed_seconds": 53.7,
+      "score": 50.4,
+      "bound": 50.4,
+      "coverage": 100.0,
+      "optimal": true,
+      "proven_infeasible": false,
+      "primary_optimal": true,
+      "independent_expected_score": 50.4,
+      "export_verified": true,
+      "wall_seconds": 56.05
+    }
+  ],
+  "health": {
+    "ok": true,
+    "validation": "local",
+    "chat_configured": true,
+    "chat_provider": "vertex",
+    "chat_model": "gemini-3.8-flash"
+  },
+  "revision": "nightshift-00005-xil"
+}

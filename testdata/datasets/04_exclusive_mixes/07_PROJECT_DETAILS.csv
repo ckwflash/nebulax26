@@ -1,0 +1,4 @@
+contract_number,contract_description,contract_award_date,activity_type,nature_of_activity,contract_priority,contract_completion_date,planned_completion_date,number_of_workfronts,access_type,number_of_maximum_access_per_week
+C401,Synthetic test contract 401,2026-01-01,Renewal,Non-live (Others),2,2027-01-10,2027-01-10,1,PM,3
+C402,Synthetic test contract 402,2026-01-01,Renewal,Non-live (Others),2,2027-01-10,2027-01-10,1,PC,3
+C403,Synthetic test contract 403,2026-01-01,Renewal,Non-live (Others),2,2027-01-10,2027-01-10,1,PC,3

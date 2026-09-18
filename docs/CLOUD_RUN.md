@@ -28,7 +28,7 @@ Set `NIGHTSHIFT_CHAT_PROVIDER=evidence` through a new Cloud Run revision to disa
 
 The session uses the SDK at `/private/tmp/google-cloud-sdk/bin/gcloud` with `CLOUDSDK_CONFIG=/private/tmp/codex-gcloud-config`. These temporary paths may disappear after restart; use an accessible authenticated SDK for later maintenance.
 
-The `.gcloudignore` allowlist sends only 48 build inputs (about 937 KiB before compression), including public PS1 data and checked output fixtures. Local credentials, uploaded demand books and unrelated datasets are excluded. Cloud Build builds the multi-stage Dockerfile; deployment uses its immutable image digest. Runtime ADC credentials come from the attached service account.
+The `.gcloudignore` allowlist sends only 48 build inputs (about 888 KiB before compression), including public PS1 data and checked output fixtures. Local credentials, uploaded demand books and unrelated datasets are excluded. Cloud Build builds the multi-stage Dockerfile; deployment uses its immutable image digest. Runtime ADC credentials come from the attached service account.
 
 Before an update, let current jobs finish when possible. Keep the previous working image digest for rollback. Conditional run ownership also guards replacement-instance recovery. Rollbacks must not delete the state bucket.
 
@@ -52,17 +52,17 @@ To stop the application completely, delete the Cloud Run service through the con
 
 ## Verification
 
-The local suite passes 190 tests. The production frontend build, Worker compatibility typecheck and combined API/static routing pass. The GCS regression tests cover durable reads, storage outages, competing claims, lease renewal/expiry and rejection of stale updates. Hosted private checks passed for all three scenarios: A=25.2, B=30, C=25.2, each optimal in the local model with 100% workload coverage. ZIP upload, exact three-file exports, C006/A036 evidence and a hard-closure preview with an unchanged baseline all passed. The organiser's validator remains unavailable.
+The local suite passes 212 tests. The production frontend build, Worker compatibility typecheck and combined API/static routing pass. The GCS regression tests cover durable reads, storage outages, competing claims, lease renewal/expiry and rejection of stale updates. Hosted private checks passed for all three scenarios: A=25.2, B=30, C=25.2, each optimal in the local model with 100% workload coverage. ZIP upload, exact three-file exports, C006/A036 evidence and a hard-closure preview with an unchanged baseline all passed. The organiser's validator remains unavailable.
 
 
 ## Release identifiers
 
 - Service URL: `https://nightshift-717753975344.us-central1.run.app` (public access verified).
-- Image digest: `sha256:bcb37a2d3831e9b6a7b283b18f2053e9af976f27c11db119cd205d018e330950`.
+- Image digest: `sha256:d270c8e5ffc0ee4ec5aeea9dcd5e390b463fa296d91ebcdca51e9f8c6bc8c0a8`.
 - Image repository: `us-central1-docker.pkg.dev/qwiklabs-gcp-00-71d4c677d0cc/nightshift/nightshift`.
-- Successful Cloud Build: `dab83326-39a6-4849-9212-bcd1babe6a10` in `us-central1`.
+- Successful Cloud Build: `d1328cb7-15b9-4f78-8106-aebe25d6837b` in `us-central1`.
 - First verified revision: `nightshift-00001-t4b`.
-- Current serving revision: `nightshift-00003-lah` (100% of public traffic).
+- Current serving revision: `nightshift-00005-xil` (100% of public traffic).
 - Private smoke report: `.nightshift/deployment/verification.json`.
 - Reusable verification tools: `scripts/verify_hosted.py`, `scripts/verify_recovery.py`.
 
@@ -84,7 +84,7 @@ Deployment acceptance is complete. The warm instance remains running as requeste
 
 ## Vertex release verification — 18 September 2026
 
-Build `dab83326-39a6-4849-9212-bcd1babe6a10` produced the current image. The candidate revision was first deployed with zero main-URL traffic and a temporary `vertex-check` tag. Real calls from its attached runtime identity passed capacity routing, C006/A036 explanations, handover summaries and a B preview. Successful replies reported `mode: "vertex"`; no API key or impersonation grant was used. The preview completed at score 30 with 100% coverage, left the A baseline unchanged and exported exactly the three required CSVs. Incomplete change requests asked for clarification. Existing completed A/B/C versions survived with scores 25.2 / 30 / 25.2.
+The initial Vertex build `dab83326-39a6-4849-9212-bcd1babe6a10` produced revision `nightshift-00003-lah`. The candidate revision was first deployed with zero main-URL traffic and a temporary `vertex-check` tag. Real calls from its attached runtime identity passed capacity routing, C006/A036 explanations, handover summaries and a B preview. Successful replies reported `mode: "vertex"`; no API key or impersonation grant was used. The preview completed at score 30 with 100% coverage, left the A baseline unchanged and exported exactly the three required CSVs. Incomplete change requests asked for clarification. Existing completed A/B/C versions survived with scores 25.2 / 30 / 25.2.
 
 One initial model request returned the visible evidence fallback after approximately 15 seconds. The subsequent full check passed; ordinary successful chat requests in the sampled logs took roughly 1–6 seconds. The provider has a 15-second HTTP timeout, and the demo deliberately remains usable when a model request fails.
 
@@ -98,4 +98,15 @@ To roll back to the previous evidence-only release while preserving saved state:
 gcloud run services update-traffic nightshift --project=qwiklabs-gcp-00-71d4c677d0cc --region=us-central1 --to-revisions=nightshift-00002-srz=100
 ```
 
-The previous image digest is `sha256:03fcfec740630b5f13c6df437ecb75550269aa06c628245ba760aa0fc7a80ddc`. The machine-readable record in `docs/deployment.json` retains its build/revision identifiers as well. A bounded inspection of 83 entries from the Vertex revision found no server-error responses or detected bearer tokens, private keys, API-key values or uploaded CSV-header patterns; details are in `.nightshift/deployment/vertex-log-check.json`.
+The evidence-only image digest is `sha256:03fcfec740630b5f13c6df437ecb75550269aa06c628245ba760aa0fc7a80ddc`. The machine-readable record in `docs/deployment.json` retains its build/revision identifiers as well. A bounded inspection of 83 entries from the Vertex revision found no server-error responses or detected bearer tokens, private keys, API-key values or uploaded CSV-header patterns; details are in `.nightshift/deployment/vertex-log-check.json`.
+
+
+## Dataset tests and checkpoint-read repair — 18 September 2026
+
+Ten additional test demand books are in `testdata/`, with reproducible ZIPs, independent score expectations and a complete result matrix in `testdata/TEST_RESULTS.md`. All 30 local and 30 hosted scenario checks passed; the deliberately impossible case returned no schedule and blocked exports. The 108-activity C case achieved its optimal primary score of 50.4 at the 60-second limit, and reached full combined-objective OPTIMAL status in a later 93.98-second run.
+
+That longer check exposed an intermittent 404 when a GCS checkpoint generation was overwritten after metadata lookup but before download. The fixed reader retries a missing old generation; only a fresh metadata lookup may establish that a run is absent. Repeated churn becomes an explicit storage error. The defect was reproduced against the real bucket and covered by four regression cases. All 212 tests passed.
+
+Cloud Build `d1328cb7-15b9-4f78-8106-aebe25d6837b` built the repair. Revision `nightshift-00005-xil` first received zero main-URL traffic; its tagged candidate completed a fresh 108-activity C solve with uninterrupted polling in 53.70 solver seconds, score/bound 50.4, full coverage, OPTIMAL status and a valid three-CSV export. The difference from the earlier runtime is an observation, not a demonstrated performance improvement. The candidate was promoted to 100% of public traffic and the temporary tag removed. Runtime sizing, Vertex configuration, bucket and public URL remain unchanged.
+
+The previous Vertex-enabled revision is `nightshift-00003-lah`, with image digest `sha256:bcb37a2d3831e9b6a7b283b18f2053e9af976f27c11db119cd205d018e330950`. It remains available for rollback, but contains the checkpoint-read race. Input fixtures and test reports are excluded by the build-upload allowlist.
