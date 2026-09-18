@@ -2,15 +2,6 @@
 
 # Problem Statement 1 — Railway Track Access Optimisation
 
-<!--
-TEMPLATE STRUCTURE (replicable for any PS):
-1. Challenge Statement   — the ask, in one line + non-negotiables. Same shape across all PS.
-2. Challenge Details      — everything problem-specific: domain model, data, rules, scenarios,
-                            output schema, tooling, traps. This section differs per PS.
-3. Expectations & Goals   — scope (in/out), phased roadmap, rubric, bonus scope.
-4. Deliverables           — what to submit, in what form.
--->
-
 ## 1. Challenge Statement
 
 **Build a tool that decides who gets the track, on which nights, for the dual-line rail network (Line Alpha & Line Beta) — and proves its answer.**
@@ -39,8 +30,7 @@ Think of track scheduling like managing rolling construction zones along a multi
 3. **Scheduler's Allocation Power:** LTA scheduler distributes remaining nights across contracted programmes (e.g. `C001`, `C002`) to best meet delivery goals.
 4. **Weekly Access Cap:** `PROJECT_DETAILS.number_of_maximum_access_per_week` is the per-contract weekly cap — 2 access-nights per week for `Live` contracts, 3 for all others, the same value every week of the horizon. This flat column is the cap the validator enforces directly (§2.4 rule 7).
 5. **Co-Sharing:** A `PC` activity can **co-share** its location slot with a `C` activity. `PC` and `C` are already buffer-free against each other by rule, so co-sharing isn't waiving a buffer that would otherwise apply — it's allowed to pack a `PC` and a `C` into the same slot at the same time. `C`and other `C` can also co-share the same location at the same time.
-
-   *Example:* Tunnel sector `S01–S02` has 1 slot on a given night. Contract `C001` needs `PC` there and Contract `C002` needs `C` there. Both fit in that one slot simultaneously — no buffer between them, so no exclusion zone to negotiate.
+  *Example:* Tunnel sector `S01–S02` has 1 slot on a given night. Contract `C001` needs `PC` there and Contract `C002` needs `C` there. Both fit in that one slot simultaneously — no buffer between them, so no exclusion zone to negotiate.
 6. **Safety Buffers:** Non-co-sharing activities get exclusion zones ahead/behind the worksite to prevent collisions.
 7. **Live Rail (750V):** Live-rail work cuts third-rail power; closures **mirror onto the opposite bound** (`EB ↔ WB`).
 8. **Interchange stations:** Are stations with the same station name, with two distinct tunnel and platform sectors. They have unique exception rules when live activities are carried out. refer to 2.2 below.
@@ -49,9 +39,9 @@ Think of track scheduling like managing rolling construction zones along a multi
 
 ### 2.2 The Network
 
-![Dual-Line Track Access Network Topology](02_references/network_diagram.svg)
+Dual-Line Track Access Network Topology
 
-**Line Alpha (`ALP`)** and **Line Beta (`BET`)** — exactly 10 stations each (8 exclusive stations S01–S08 on Alpha and S11–S18 on Beta, plus 2 interchange hubs H01 and H02), with two interchange hubs (`Hub H01` and `Hub H02`) that exist on both lines. Every station — interchange hubs included — has its own platform per bound per line; a normal station's `EB` and `WB` platforms are already independent locations, so one `PC` on `EB` and one `PC` on `WB` can run concurrently. Three features drive everything:
+**Line Alpha (**`ALP`**)** and **Line Beta (**`BET`**)** — exactly 10 stations each (8 exclusive stations S01–S08 on Alpha and S11–S18 on Beta, plus 2 interchange hubs H01 and H02), with two interchange hubs (`Hub H01` and `Hub H02`) that exist on both lines. Every station — interchange hubs included — has its own platform per bound per line; a normal station's `EB` and `WB` platforms are already independent locations, so one `PC` on `EB` and one `PC` on `WB` can run concurrently. Three features drive everything:
 
 - **Two independent bounds.** Each line has an eastbound (`EB`) and a westbound (`WB`) track. They schedule separately — except for the couplings below.
 - **Two separate things get booked.** Capacity is tracked in two places: the **tunnel sector** (the stretch of track between stations, e.g. `SEC:ALP:S02_S03:EB`) and the **platform sector** (the station itself, e.g. `PLAT:ALP:S03:EB`). A job that runs from one station to another must book every tunnel sector and platform sector it passes through along the way — from where it starts ("book-in") to where it ends ("book-out").
@@ -59,7 +49,7 @@ Think of track scheduling like managing rolling construction zones along a multi
 **Interchange stations:** Tunnel `H01 ↔ H02` is physically two adjacent tunnels, not one shared track.
 
 - **Own capacity per line:** Alpha has its own `SEC:ALP:H01_H02` tunnel sector (and own `H01`/`H02` platforms), Beta has its own `SEC:BET:H01_H02` tunnel sector (and own platforms). Booking Alpha's tunnel sector never draws down Beta's.
-- **The one exception — `Live`:** cutting traction power at the interchange affects both tunnels, so a `Live` activity's closure also closes the other line's `H01_H02` tunnel sector and `H01`/`H02` platforms. Every other activity type (`PC`/`PM`/`C`) stays confined to its own line.
+- **The one exception —** `Live`**:** cutting traction power at the interchange affects both tunnels, so a `Live` activity's closure also closes the other line's `H01_H02` tunnel sector and `H01`/`H02` platforms. Every other activity type (`PC`/`PM`/`C`) stays confined to its own line.
 
 *Example:* Each line's tunnel sector holds up to 4 activities a night (1 `PC` + 3 `C`, or 4 `C`). Separately, each interchange station has 4 platforms (`EB`/`WB` × Alpha/Beta), and each platform holds up to 4 activities the same way — 16 total across the station's platforms.
 
@@ -109,37 +99,48 @@ Possible scenarios for scheduler output,
 
 1. **ECLO Minimisation (Scenarios B/C only — hard-forbidden in A, see §2.5):** ECLO buys +1.5 working hours on a night, yielding **1.5× work units** toward `total_accesses` (e.g. a 3-night activity finishes in 2 ECLO nights). Because early closure curtails passenger service, favour it only when it's the schedule's only way to avoid a worse outcome — the objective function penalises unnecessary use at **$5\times$ per ECLO-night used**, flat regardless of which contract's activity it serves.
 2. **Priority Weighting :** Delay cost is set by **two independent, stacked** signals:
-   - **Contract tier** (`contract_priority`) sets the *band*, and is the dominant lever: $100\times$ per overrun-day for Priority 1, $10\times$ for Priority 2, $1\times$ for Priority 3.
-   - **Activity `activity_priority`** only *nudges the multiplier within its own contract's band*: $+0.3$ / $+0.2$ / $+0.0$ added on top of the contract's tier weight. A Priority-1 contract therefore costs $100$–$130\times$ per overrun-day depending on which activity is late inside it — but the nudge never lets it drop below $100\times$ or lets a lower-tier contract's activity cross into a higher tier's band (a Priority-2 contract's ceiling is $13\times$, still nowhere near Priority-1's floor of $100\times$). **Contract tier decides which band you're in; `activity_priority` only moves you around inside it.**
+  - **Contract tier** (`contract_priority`) sets the *band*, and is the dominant lever: $100\times$ per overrun-day for Priority 1, $10\times$ for Priority 2, $1\times$ for Priority 3.
+  - **Activity** `activity_priority` only *nudges the multiplier within its own contract's band*: $+0.3$ / $+0.2$ / $+0.0$ added on top of the contract's tier weight. A Priority-1 contract therefore costs $100$–$130\times$ per overrun-day depending on which activity is late inside it — but the nudge never lets it drop below $100\times$ or lets a lower-tier contract's activity cross into a higher tier's band (a Priority-2 contract's ceiling is $13\times$, still nowhere near Priority-1's floor of $100\times$). **Contract tier decides which band you're in;** `activity_priority` **only moves you around inside it.**
 
 **Combined objective (penalty score, lower is better):**
 
-$$
-\text{Score}_{A} = \sum_{\text{tier}} \left(\text{priority\_weight}_{\text{tier}} \times \text{overrun\_days}_{\text{tier}}\right)
-$$
+The reference validator reports these in `validation.score` and `validation.soft_scores` (see §2.6). Tier weights are **100 / 10 / 1** per contract-priority day before the activity-priority nudge in §2.5; `priority_overrun` is overrun-days summed per tier.
 
-(No ECLO term — ECLO is hard-forbidden in Scenario A, not merely penalised, so `eclo_nights_total` is always 0 for any feasible A submission.)
 
-$$
-\text{Score}_{B} = 7 \times \text{excess\_access\_nights\_total} \;+\; 5 \times \text{eclo\_nights\_total}
-$$
+| Scenario | Total penalty (`validation.score`)                                                 |
+| -------- | ---------------------------------------------------------------------------------- |
+| **A**    | `priority_weighted_score` only — priority-weighted overrun across all contracts    |
+| **B**    | `7 × excess_access_nights_total + 5 × eclo_nights_total`                           |
+| **C**    | `priority_weighted_score + 7 × excess_access_nights_total + 5 × eclo_nights_total` |
 
-$$
-\text{Score}_{C} = \sum_{\text{tier}} \left(\text{priority\_weight}_{\text{tier}} \times \text{overrun\_days}_{\text{tier}}\right) \;+\; 7 \times \text{excess\_access\_nights\_total} \;+\; 5 \times \text{eclo\_nights\_total}
-$$
+
+Expanded form:
+
+```text
+Score_A = Σ_tier ( priority_weight_tier × overrun_days_tier ), with per-contract nudge from activity_priority
+        ≡ priority_weighted_score in the validator JSON
+
+Score_B = 7 × excess_access_nights_total + 5 × eclo_nights_total
+
+Score_C = priority_weighted_score + 7 × excess_access_nights_total + 5 × eclo_nights_total
+```
+
+Scenario A has **no** ECLO or excess-capacity terms — both are hard-forbidden (`eclo_nights_total` and `excess_access_nights_total` must be 0 for any feasible A submission), not soft penalties.
 
 Scenario A scores on priority-weighted overrun only (dates are the flexible side, supply is rigid, and ECLO/additional night access is hard-forbidden). Scenario B has no overrun term — dates are rigid, so a feasible submission scores instead on the number of additional access-nights spent above nominal supply, plus the ECLO penalty. Scenario C, being neither rigid, carries **both** terms — A's overrun component and B's excess-access-nights component — since the instance's amended `LOCATION_SUPPLY` gives it room to flex on both sides at once — and, like B, still permits ECLO as a genuine trade-off lever.
 
 **Worked example — 1-calendar-week overrun, priced differently depending on where it sits** (the overrun-day rows apply to A/C; the excess-access-night and ECLO rows apply to **B/C only** — Scenario A forbids both, so it has no lever besides accepting the overrun itself; cost = tier-weight × (1 + activity_priority nudge) × days, or the flat ECLO/excess-night rate):
 
-| Penalty source                                                                        | Calculation                           | Cost | Relative to a P3 overrun-day |
-| ------------------------------------------------------------------------------------- | ------------------------------------- | ---- | ---------------------------- |
-| P3 contract,`activity_priority = 3` Activity 3, 7 days, change to activity priority | $1 \times (1+0.0) \times 7(days)$   | 7    | 1×                          |
-| P3 contract,`activity_priority = 1`  activity, 7 days                              | $1 \times (1+0.3) \times 7(days)$   | 9.1  | 1.3×                        |
-| P2 contract,`activity_priority = 3`  activity, 7 days                              | $10 \times (1+0.0) \times 7(days)$  | 70   | 10×                         |
-| P1 contract,`activity_priority = 3`  activity, 7 days                              | $100 \times (1+0.0) \times 7(days)$ | 700  | 100×                        |
-| Excess access-nights (Scenario B/C), 3 nights                                         | $7 \times 3(nights)$                | 21   | 3×                          |
-| 6 ECLO nights used instead of overrunning                                             | $5 \times 6 (nights)$               | 30   | 4.3×                        |
+
+| Penalty source                                                                      | Calculation                         | Cost | Relative to a P3 overrun-day |
+| ----------------------------------------------------------------------------------- | ----------------------------------- | ---- | ---------------------------- |
+| P3 contract,`activity_priority = 3` Activity 3, 7 days, change to activity priority | $1 \times (1+0.0) \times 7(days)$   | 7    | 1×                           |
+| P3 contract,`activity_priority = 1` activity, 7 days                                | $1 \times (1+0.3) \times 7(days)$   | 9.1  | 1.3×                         |
+| P2 contract,`activity_priority = 3` activity, 7 days                                | $10 \times (1+0.0) \times 7(days)$  | 70   | 10×                          |
+| P1 contract,`activity_priority = 3` activity, 7 days                                | $100 \times (1+0.0) \times 7(days)$ | 700  | 100×                         |
+| Excess access-nights (Scenario B/C), 3 nights                                       | $7 \times 3(nights)$                | 21   | 3×                           |
+| 6 ECLO nights used instead of overrunning                                           | $5 \times 6 (nights)$               | 30   | 4.3×                         |
+
 
 Reading it as an ordering, cheapest to costliest per unit: **P3 overrun-day (1×~1.3x)  < excess access-night (3x) < ECLO night (4.3x)< P2 overrun-day (10×) < P1 overrun-day (100×)**. Practically, **in Scenarios B/C**: a solver should absorb schedule pressure with Priority-3 slip first, reach for ECLO next, and only spend extra access-nights when ECLO headroom is exhausted — extra nights are operationally scarce to secure and now cost more per unit than an ECLO-night — before ever delaying Priority-2/Priority-1 contracts as a last resort. The `activity_priority` nudge is a tie-breaker *within* a contract, never a reason to prefer delaying a higher-tier contract over a lower-tier one.
 
@@ -149,19 +150,19 @@ Reading it as an ordering, cheapest to costliest per unit: **P3 overrun-day (1×
 
 Each of the three scenarios (A, B, C) is a distinct answer key: its own policy trade-off, so its own submission. For **each scenario**, your tool must produce strictly three CSV files:
 
-1. **`SCHEDULE_ACCESS.csv`** — Activity access placement per week:
-   `activity_id,access_seq,week,eclo,access_night`
-   *(eclo is 0 for standard night, 1 for ECLO night. `access_night` is which
-   of that (contract_number, activity_type)'s granted weekly nights (1..
-   `number_of_maximum_access_per_week`) this access falls on — a local
+1. `SCHEDULE_ACCESS.csv` — Activity access placement per week:
+  `activity_id,access_seq,week,eclo,access_night`
+   *(eclo is 0 for standard night, 1 for ECLO night.* `access_night` *is which
+   of that (contract_number, activity_type)'s granted weekly nights (1..*
+   `number_of_maximum_access_per_week`*) this access falls on — a local
    accounting index per contract+type+week, independent of location/sector. It's what rule 8 (workfronts) and rule 7 (weekly allocation)
    below are checked against.)*
-2. **`SCHEDULE_OCCUPANCY.csv`** — Location and slot assignment per week:
-   `activity_id,week,location_id,co_share_group`
-   *(`co_share_group` is an arbitrary label like `b1`, `b2` identifying which possession location the activity occupies. Use `python3 -m trackaccess expand` to auto-generate this.)*
-3. **`RESULTS.csv`** — Contract completion summary:
-   `scenario,contract_number,simulated_completion_date,overrun_days`
-   *(one scenario per `RESULTS.csv` — the validator rejects a file mixing more than one)*
+2. `SCHEDULE_OCCUPANCY.csv` — Location and slot assignment per week:
+  `activity_id,week,location_id,co_share_group`
+   *(*`co_share_group` *is an arbitrary label like* `b1`*,* `b2` *identifying which possession location the activity occupies. Use* `python3 -m trackaccess expand` *to auto-generate this.)*
+3. `RESULTS.csv` — Contract completion summary:
+  `scenario,contract_number,simulated_completion_date,overrun_days`
+   *(one scenario per* `RESULTS.csv` *— the validator rejects a file mixing more than one)*
 
 That is **three scenario answer keys**, each its own set of `SCHEDULE_ACCESS.csv` / `SCHEDULE_OCCUPANCY.csv` / `RESULTS.csv`, validated independently.
 
@@ -190,16 +191,16 @@ That is **three scenario answer keys**, each its own set of `SCHEDULE_ACCESS.csv
 }
 ```
 
-- **`scenario`** — which of A/B/C this submission was validated against (read from `RESULTS.csv`).
-- **`feasible`** — `true` only if `hard_violations` is empty.
-- **`hard_violations`** — one entry per breach, each `{rule, severity, detail}` — `rule` matches the check tags above, `detail` is a human-readable pinpoint (activity, week, location). Empty when feasible.
-- **`soft_scores`** — populated on every run (empty only if the instance/submission files fail to parse), the quality metrics behind §2.5's objectives; `objective_score`/`formula_version` (§2.5's combined score) are added on top only when `feasible`:
+- `scenario` — which of A/B/C this submission was validated against (read from `RESULTS.csv`).
+- `feasible` — `true` only if `hard_violations` is empty.
+- `hard_violations` — one entry per breach, each `{rule, severity, detail}` — `rule` matches the check tags above, `detail` is a human-readable pinpoint (activity, week, location). Empty when feasible.
+- `soft_scores` — populated on every run (empty only if the instance/submission files fail to parse), the quality metrics behind §2.5's objectives; `objective_score`/`formula_version` (§2.5's combined score) are added on top only when `feasible`:
   - `overrun_days_total` / `contracts_overrunning` / `earliness_days_total` — completion-date performance.
   - `excess_access_nights_total` — additional access-nights used above nominal `LOCATION_SUPPLY`, summed across location-weeks: how far Scenario B/C's flexible supply had to stretch. Hard-checked as `capacity` in A (zero tolerance) and in C beyond 1 excess access-night per location-week; unlimited (soft-scored only) in B. This feeds Scenario B's score directly, and Scenario C's alongside its overrun term (§2.5).
   - `eclo_nights_total` — ECLO usage (§2.5 soft objective 1). Always 0 for Scenario A — any nonzero value there is a hard `eclo` violation, not a soft cost.
   - `priority_overrun` — raw overrun-days summed by **contract priority** (`contract_priority`, §2.3): tier "1" gets every overrun-day belonging to a Priority-1 contract, regardless of which activity inside it was late. Does not use `activity_priority` at all — a Priority-1 activity overrunning inside a Priority-3 contract counts the same as a Priority-3 activity in that same contract.
   - `priority_weighted_score` — the banded score (§2.5 soft objective 2): `contract_weight × (1 + activity_priority) × overrun_days`, summed per overrunning activity. `contract_weight` is $100/10/1$ for contract tier 1/2/3. `activity_priority` is $+0.3/+0.2/+0.0$ for the activity's own `activity_priority` 1/2/3, added on top of `contract_weight`. Contract tier sets the main score band; `activity_priority` adjusts the score within that band.
-- **`detail`** — supplementary diagnostics: `capacity_hotspots` (locations/weeks running at or near capacity), `nights_scheduled` (total access-nights across all activities), `eclo_nights` (of those, how many were ECLO). Empty only when the instance/submission files themselves fail to parse.
+- `detail` — supplementary diagnostics: `capacity_hotspots` (locations/weeks running at or near capacity), `nights_scheduled` (total access-nights across all activities), `eclo_nights` (of those, how many were ECLO). Empty only when the instance/submission files themselves fail to parse.
 
 A worked example of the validator's own output (not runnable here — see the note above): the `03_submission_sample/` folder in this info pack is a feasible, 0-hard-violation submission against `01_data/` — showing the expected file structure and format, not a tool you invoke.
 
@@ -215,11 +216,13 @@ You receive **instance files** (the demand book for a planning horizon) and retu
 
 ### 3.2 Required Capabilities & Judging Rubric
 
-| Dimension                        | What Judges Look For                                                                                                                                                                                                                             |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+
+| Dimension                  | What Judges Look For                                                                                                                                                                                                                            |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **1. Problem Fit**         | Handles Scenarios A, B & C sensibly; output is feasible and well-formed; trade-offs and displaced work are explained, not just produced. How you get there is open — any reasonable approach that addresses the real scheduling problem counts. |
-| **2. Technical Execution** | Scored directly from the reference **validator's** output run against hidden instances — feasibility, violation count, and score relative to the reference solver's benchmark.                                                             |
+| **2. Technical Execution** | Scored directly from the reference **validator's** output run against hidden instances — feasibility, violation count, and score relative to the reference solver's benchmark.                                                                  |
 | **3. Ease of Use**         | A works controller could actually pick it up and use it. Interface form is your choice — judges are looking for genuine usability, not a specific set of features.                                                                              |
+
 
 ### 3.3 Bonus Scope & Beyond-the-Schedule Innovation
 
@@ -239,3 +242,4 @@ Participants must submit the following four deliverables:
 2. **Hosted Live Web App URL:** A running, accessible web application where the judging panel can upload an undisclosed / hidden test instance (the 8 CSV instance files) into the UI to run your scheduler live, visualize the result, and validate the logic.
 3. **3-Minute YouTube Video:** A concise video walkthrough demonstrating your application, user experience for a 2AM works controller, scheduling timeline, and explainability features.
 4. **GitLab Repository URL:** Complete source code, solver implementation, setup instructions, and documentation.
+
