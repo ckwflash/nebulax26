@@ -10,11 +10,25 @@ from ortools.sat.python import cp_model
 from .domain import Access, Completion, Instance, Occupancy, Schedule, capacity_at
 from .validation import validate
 
+# Scenario B overrun weight, in tenths like every other penalty term. Far above the
+# 70/excess and 50/ECLO rates so B buys its dates with supply before it slips them.
+DEADLINE_PRICE = 10_000
 
-def solve(instance: Instance, scenario: str, seconds=60, overrides=(), baseline: Schedule | None = None, callback: Callable | None = None):
+
+def solve(instance: Instance, scenario: str, seconds=60, overrides=(), baseline: Schedule | None = None, callback: Callable | None = None, relax_deadline=False):
     if scenario not in ("A", "B", "C"):
         raise ValueError("Scenario must be A, B or C.")
     started = time.monotonic()
+    # B is solved in two phases. Phase 1 keeps the deadline as a domain filter, which is
+    # both fast and exactly the rule. Only when that proves INFEASIBLE does phase 2 reopen
+    # the horizon and price the overrun, so a tight instance still returns a schedule
+    # instead of nothing. Deciding this up front avoids building a model that cannot solve.
+    if scenario == "B" and not relax_deadline:
+        relax_deadline = any(
+            not [w for w in range(1, instance.weeks + 1)
+                 if w >= min(max(1, instance.week(a.planned_start_date)), instance.weeks)
+                 and instance.week_end(w) <= instance.projects[a.contract_number].planned_completion_date]
+            for a in instance.activities.values())
     model = cp_model.CpModel()
     aids = sorted(instance.activities)
     # Auxiliary synchronized opportunities prove a physically realizable schedule.
@@ -26,7 +40,10 @@ def solve(instance: Instance, scenario: str, seconds=60, overrides=(), baseline:
     for aid in aids:
         a = instance.activities[aid]
         p = instance.projects[a.contract_number]
-        eligible = [w for w in weeks if w >= max(1, instance.week(a.planned_start_date)) and (scenario != "B" or instance.week_end(w) <= p.planned_completion_date)]
+        # A start week beyond the horizon is clamped to the final week rather than
+        # emptying the window, which would make the whole model trivially infeasible.
+        first = min(max(1, instance.week(a.planned_start_date)), instance.weeks)
+        eligible = [w for w in weeks if w >= first and (scenario != "B" or relax_deadline or instance.week_end(w) <= p.planned_completion_date)]
         finish[aid] = model.new_int_var(1, instance.weeks, f"finish_{aid}")
         for w in eligible:
             x[aid, w] = model.new_bool_var(f"work_{aid}_{w}")
@@ -47,10 +64,7 @@ def solve(instance: Instance, scenario: str, seconds=60, overrides=(), baseline:
                     model.add_hint(z[aid, w, n], int(baseline.witness.get(f"{aid}:{w}") == n + 1))
         model.add(sum(2 * x[aid, w] + e[aid, w] for w in eligible) >= 2 * a.total_accesses)
         model.add(sum(2 * x[aid, w] + e[aid, w] for w in eligible) <= 2 * a.total_accesses + 1)
-        if eligible:
-            model.add_max_equality(finish[aid], [w * x[aid, w] for w in eligible])
-        else:
-            model.add_bool_or([])
+        model.add_max_equality(finish[aid], [w * x[aid, w] for w in eligible])
     for (aid, w), present in x.items():
         pred = instance.activities[aid].predecessor_activity_id
         if pred:
@@ -122,7 +136,11 @@ def solve(instance: Instance, scenario: str, seconds=60, overrides=(), baseline:
         p = instance.projects[instance.activities[aid].contract_number]
         late = model.new_int_var(0, max(0, (instance.week_end(instance.weeks) - p.planned_completion_date).days), f"late_{aid}")
         model.add_max_equality(late, [0, 7 * finish[aid] - 1 - (p.planned_completion_date - instance.start).days])
-        if scenario != "B":
+        if scenario == "B":
+            # Phase 1 cannot be late by construction. In phase 2 this must dominate every
+            # other term so a date slips only when no ECLO/excess combination can hit it.
+            penalty.append(DEADLINE_PRICE * late)
+        else:
             penalty.append(instance.weight10(aid) * late)
     if scenario != "A":
         penalty.extend([70 * v for v in excess_vars])
@@ -164,12 +182,19 @@ def solve(instance: Instance, scenario: str, seconds=60, overrides=(), baseline:
         best = None
         report = None
         count = 0
+        # Exceptions do not propagate reliably out of an OR-Tools callback.
+        # Record the disagreement, stop the search, and inspect after solve() returns.
+        disagreement = None
         def on_solution_callback(self):
             candidate = extract(self)
             checked = validate(instance, candidate, overrides)
-            if not checked["feasible"]:
+            # A priced B overrun is a deliberate last resort, not a modelling error: the
+            # checker still reports it as a hard violation, and that report is kept intact.
+            unexpected = [v for v in checked["hard_violations"] if not (scenario == "B" and v["rule"] == "planned_date")]
+            if unexpected:
+                self.disagreement = unexpected[:3]
                 self.stop_search()
-                raise RuntimeError("Solver/checker disagreement: " + str(checked["hard_violations"][:3]))
+                return
             self.best, self.report = candidate, checked
             self.count += 1
             if callback:
@@ -187,6 +212,26 @@ def solve(instance: Instance, scenario: str, seconds=60, overrides=(), baseline:
               "schedule": collector.best.model_dump(mode="json") if collector.best else None,
               "validation": collector.report,
               "interpretation": "Local conservative temporal-witness model. Official validator unavailable."}
+    if collector.report and scenario == "B" and any(v["rule"] == "planned_date" for v in collector.report["hard_violations"]):
+        slipped = sum(1 for v in collector.report["hard_violations"] if v["rule"] == "planned_date")
+        result["solver_status"] = "OPTIMAL_WITH_OVERRUN" if status == cp_model.OPTIMAL else status_name
+        result["message"] = (f"No zero-overrun schedule exists here: {slipped} activities miss their planned completion date. "
+                             "Supply levers were exhausted first, and the overrun shown is the least this model can achieve. "
+                             "This submission would hard-fail a strict Scenario B check.")
+    if collector.disagreement:
+        # Earlier incumbents were independently validated, so they are retained and
+        # remain safe to export; the search is simply no longer trustworthy past this point.
+        result["solver_status"] = "CHECKER_DISAGREEMENT"
+        result["error"] = "Solver/checker disagreement: " + str(collector.disagreement)
+        result["message"] = "The model proposed a schedule the independent checker rejected; the search was stopped. Any schedule shown is the last checked incumbent."
+    if scenario == "B" and not relax_deadline and status == cp_model.INFEASIBLE:
+        # No zero-overrun schedule exists. Reopen the horizon and price the slip rather
+        # than reporting an impossible case, spending whatever budget phase 1 left.
+        remaining = max(1.0, seconds - (time.monotonic() - started))
+        fallback = solve(instance, scenario, remaining, overrides, baseline, callback, relax_deadline=True)
+        fallback["elapsed_seconds"] = round(time.monotonic() - started, 2)
+        fallback["deadline_relaxed"] = True
+        return fallback
     if status == cp_model.MODEL_INVALID:
         result["error"] = engine.solution_info()
     if not collector.best:

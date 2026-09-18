@@ -142,12 +142,14 @@ def validate(instance: Instance, schedule: Schedule, overrides=()):
     result_rows = {r.contract_number: r for r in schedule.results}
     if len(result_rows) != len(schedule.results) or set(result_rows) != set(instance.projects):
         fail("results", "RESULTS must contain exactly one row per contract.")
-    contract_details, total_late, tiers = [], 0, {"1": 0, "2": 0, "3": 0}
+    contract_details, total_late, total_early, tiers = [], 0, 0, {"1": 0, "2": 0, "3": 0}
     for cid, p in instance.projects.items():
         week = max((finish[a.activity_id] for a in instance.activities.values() if a.contract_number == cid), default=0)
         completion = instance.week_end(week) if week else instance.start
         late = max(0, (completion - p.planned_completion_date).days)
+        early = max(0, (p.planned_completion_date - completion).days)
         total_late += late
+        total_early += early
         tiers[str(p.contract_priority)] += late
         row = result_rows.get(cid)
         if row and (row.scenario != schedule.scenario or row.simulated_completion_date != completion or row.overrun_days != late):
@@ -155,11 +157,22 @@ def validate(instance: Instance, schedule: Schedule, overrides=()):
         contract_details.append({"contract_number": cid, "completion_week": week, "simulated_completion_date": str(completion), "planned_completion_date": str(p.planned_completion_date), "overrun_days": late, "priority": p.contract_priority, "evidence_id": f"contract:{cid}"})
     eclo = sum(r.eclo for r in schedule.access)
     score = (0 if schedule.scenario == "B" else weighted / 10) + (0 if schedule.scenario == "A" else 7 * excess + 5 * eclo)
-    return {"scenario": schedule.scenario, "feasible": not violations and safety_verified,
+    feasible = not violations and safety_verified
+    # Brief section 2.7 report shape. objective_score/formula_version are added only
+    # when feasible; capacity_hotspots is the at-or-over-capacity subset of `capacity`.
+    soft = {"scenario": schedule.scenario, "priority_weighted_score": round(weighted / 10, 1),
+            "overrun_days_total": total_late, "contracts_overrunning": sum(c["overrun_days"] > 0 for c in contract_details),
+            "earliness_days_total": total_early, "priority_overrun": tiers,
+            "excess_access_nights_total": excess, "eclo_nights_total": eclo}
+    if feasible:
+        soft["objective_score"] = round(score, 1)
+        soft["formula_version"] = RULE_VERSION
+    return {"scenario": schedule.scenario, "feasible": feasible,
             "structurally_valid": not violations, "safety_verified": safety_verified,
             "validation_authority": "local", "rule_version": RULE_VERSION, "hard_violations": violations,
             "warnings": warnings, "score": round(score, 1), "coverage_percent": round(100 * supplied / (2 * sum(a.total_accesses for a in instance.activities.values())), 2),
             "completed_activities": complete, "total_activities": len(instance.activities),
-            "soft_scores": {"priority_weighted_score": round(weighted / 10, 1), "overrun_days_total": total_late, "contracts_overrunning": sum(c["overrun_days"] > 0 for c in contract_details), "priority_overrun": tiers, "excess_access_nights_total": excess, "eclo_nights_total": eclo},
+            "soft_scores": soft,
+            "detail": {"capacity_hotspots": [h for h in hotspots if h["used"] >= h["capacity"]], "nights_scheduled": len(schedule.access), "eclo_nights": eclo},
             "contracts": contract_details, "capacity": hotspots, "eclo_windows": {l: [min(ws), max(ws)] for l, ws in eclo_by_line.items()},
             "sharing_saved": len(schedule.occupancy) - len(groups)}
