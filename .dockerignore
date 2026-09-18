@@ -1,0 +1,10 @@
+.venv
+node_modules
+.nightshift
+.git
+.env
+.wrangler
+__pycache__
+dist
+*.zip
+*.pdf

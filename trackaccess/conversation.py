@@ -27,7 +27,7 @@ def fallback_intent(message, instance):
         else:
             capacity = int(cap.group(1)) if cap else None
         if location and week and capacity is not None:
-            return "preview_capacity", {"location_id": location, "week": int(week.group(1)), "capacity": capacity}
+            return "preview_capacity", {"location_id": location, "week": int(week.group(1)), "capacity": capacity, "closed": "close " in lower or "closure" in lower}
         return "clarify", {}
     scenario = re.search(r"scenario\s+([abc])\b", lower)
     if scenario and any(word in lower for word in ("preview", "run ", "compare", "solve", "switch")):
@@ -82,7 +82,8 @@ async def respond(instance, run, message, start_run):
     preview = None
     answer = ""
     if tool == "explain":
-        entity = str(args.get("entity_id", "")).upper()
+        requested = str(args.get("entity_id", "")).upper()
+        entity = next((key for key in [*instance.activities, *instance.projects] if key.upper() == requested), requested)
         if entity in instance.activities:
             selected = [entity]
             cid = instance.activities[entity].contract_number
@@ -97,6 +98,8 @@ async def respond(instance, run, message, start_run):
         for bound in instance.lower_bounds()["details"]:
             if bound["activity_id"] in selected:
                 answer += f"\n\n{bound['activity_id']} needs {bound['standard_accesses']} work units, with {bound['available_weeks']} eligible weeks before the deadline. At one standard access per week, its minimum delay is {bound['minimum_overrun_days']} days before resource conflicts. Meeting the deadline requires at least {bound['minimum_eclo']} ECLO accesses."
+                if not bound['deadline_feasible_with_eclo']:
+                    answer += " Even ECLO on every eligible week cannot deliver that workload before the deadline."
                 evidence.append({"id": bound["evidence_id"], "title": f"{bound['activity_id']} · workload bound", "detail": f"{bound['standard_accesses']} units / {bound['available_weeks']} weeks", "activity_id": bound["activity_id"], "contract_number": cid})
         if len(evidence) == 1:
             active = [r for r in run["schedule"]["access"] if r["activity_id"] in selected]

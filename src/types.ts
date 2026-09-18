@@ -1,11 +1,150 @@
-export type Scenario = 'A'|'B'|'C';
-export type Project = {contract_number:string;contract_description:string;contract_priority:number;planned_completion_date:string;access_type:string;nature_of_activity:string;number_of_workfronts:number;number_of_maximum_access_per_week:number};
-export type Activity = {activity_id:string;contract_number:string;activity_priority:number;total_accesses:number;start_week:number;route:string[];start_location_id:string;end_location_id:string;predecessor_activity_id:string};
-export type Instance = {id:string;name:string;horizon_start:string;horizon_weeks:number;total_workload:number;projects:Project[];activities:Activity[];locations:{id:string;capacity:number}[];lines:{line_code:string;line_name:string}[];stations:{station_id:string;line_code:string;seq:string;is_interchange:string}[];bounds:{A:number;B:number;minimum_b_eclo:number;details:{activity_id:string;contract_number:string;standard_accesses:number;available_weeks:number;minimum_overrun_days:number;minimum_eclo:number;evidence_id:string}[]}};
-export type Access = {activity_id:string;access_seq:number;week:number;eclo:number;access_night:number};
-export type ContractResult = {contract_number:string;completion_week:number;simulated_completion_date:string;planned_completion_date:string;overrun_days:number;priority:number;evidence_id:string};
-export type Capacity = {location_id:string;week:number;used:number;capacity:number;excess:number};
-export type Validation = {feasible:boolean;safety_verified:boolean;coverage_percent:number;score:number;completed_activities:number;total_activities:number;sharing_saved:number;hard_violations:{rule:string;detail:string}[];warnings:string[];soft_scores:{priority_weighted_score:number;overrun_days_total:number;contracts_overrunning:number;excess_access_nights_total:number;eclo_nights_total:number};contracts:ContractResult[];capacity:Capacity[];eclo_windows:Record<string,number[]>};
-export type Run = {id:string;instance_id:string;scenario:Scenario;status:string;label:string;created_at:string;baseline_id?:string;overrides:{location_id:string;week:number;capacity:number}[];schedule?:{access:Access[];occupancy:{activity_id:string;week:number;location_id:string;co_share_group:string}[]};validation?:Validation;solver_status?:string;elapsed_seconds?:number;model_bound?:number;error?:string;message?:string;diff?:{changed_activities:string[];removed_accesses:number;added_accesses:number;score_delta:number}};
-export type Evidence = {id:string;title:string;detail:string;contract_number?:string;activity_id?:string;location_id?:string;week?:number};
-export type ChatMessage = {role:'user'|'assistant';text:string;evidence?:Evidence[];mode?:string;notice?:string;run_id?:string};
+export type Scenario = "A" | "B" | "C";
+export type Project = {
+  contract_number: string;
+  contract_description: string;
+  contract_priority: number;
+  planned_completion_date: string;
+  access_type: string;
+  nature_of_activity: string;
+  number_of_workfronts: number;
+  number_of_maximum_access_per_week: number;
+};
+export type Activity = {
+  activity_id: string;
+  contract_number: string;
+  activity_priority: number;
+  total_accesses: number;
+  start_week: number;
+  route: string[];
+  start_location_id: string;
+  end_location_id: string;
+  predecessor_activity_id: string;
+};
+export type Instance = {
+  id: string;
+  name: string;
+  horizon_start: string;
+  horizon_weeks: number;
+  total_workload: number;
+  projects: Project[];
+  activities: Activity[];
+  locations: { id: string; capacity: number }[];
+  lines: { line_code: string; line_name: string }[];
+  stations: {
+    station_id: string;
+    line_code: string;
+    seq: string;
+    is_interchange: string;
+  }[];
+  bounds: {
+    A: number;
+    B: number;
+    minimum_b_eclo: number;
+    details: {
+      activity_id: string;
+      contract_number: string;
+      standard_accesses: number;
+      available_weeks: number;
+      minimum_overrun_days: number;
+      minimum_eclo: number;
+      evidence_id: string;
+    }[];
+  };
+};
+export type Access = {
+  activity_id: string;
+  access_seq: number;
+  week: number;
+  eclo: number;
+  access_night: number;
+};
+export type ContractResult = {
+  contract_number: string;
+  completion_week: number;
+  simulated_completion_date: string;
+  planned_completion_date: string;
+  overrun_days: number;
+  priority: number;
+  evidence_id: string;
+};
+export type Capacity = {
+  location_id: string;
+  week: number;
+  used: number;
+  capacity: number;
+  excess: number;
+};
+export type Validation = {
+  feasible: boolean;
+  safety_verified: boolean;
+  coverage_percent: number;
+  score: number;
+  completed_activities: number;
+  total_activities: number;
+  sharing_saved: number;
+  hard_violations: { rule: string; detail: string }[];
+  warnings: string[];
+  soft_scores: {
+    priority_weighted_score: number;
+    overrun_days_total: number;
+    contracts_overrunning: number;
+    excess_access_nights_total: number;
+    eclo_nights_total: number;
+  };
+  contracts: ContractResult[];
+  capacity: Capacity[];
+  eclo_windows: Record<string, number[]>;
+};
+export type Run = {
+  id: string;
+  instance_id: string;
+  scenario: Scenario;
+  status: string;
+  label: string;
+  created_at: string;
+  baseline_id?: string;
+  overrides: {
+    location_id: string;
+    week: number;
+    capacity: number;
+    closed?: boolean;
+  }[];
+  schedule?: {
+    access: Access[];
+    occupancy: {
+      activity_id: string;
+      week: number;
+      location_id: string;
+      co_share_group: string;
+    }[];
+  };
+  validation?: Validation;
+  solver_status?: string;
+  elapsed_seconds?: number;
+  model_bound?: number;
+  error?: string;
+  message?: string;
+  diff?: {
+    changed_activities: string[];
+    removed_accesses: number;
+    added_accesses: number;
+    score_delta: number;
+  };
+};
+export type Evidence = {
+  id: string;
+  title: string;
+  detail: string;
+  contract_number?: string;
+  activity_id?: string;
+  location_id?: string;
+  week?: number;
+};
+export type ChatMessage = {
+  role: "user" | "assistant";
+  text: string;
+  evidence?: Evidence[];
+  mode?: string;
+  notice?: string;
+  run_id?: string;
+};

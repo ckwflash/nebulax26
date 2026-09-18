@@ -1,0 +1,17 @@
+stages: [test, build]
+python:
+  stage: test
+  image: python:3.12-slim
+  script:
+    - pip install -r requirements.lock
+    - pip install pytest
+    - python -m pytest -q
+frontend:
+  stage: build
+  image: node:22
+  script:
+    - npm ci
+    - npm run build
+    - npm run typecheck:worker
+  artifacts:
+    paths: [dist/]

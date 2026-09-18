@@ -1,0 +1,33 @@
+{
+  "validation": "independent local checker; official validator unavailable",
+  "rule_source": "PS1/PS1_README.md",
+  "scenarios": {
+    "A": {
+      "score": 25.2,
+      "solver_status": "OPTIMAL",
+      "sha256": {
+        "SCHEDULE_ACCESS.csv": "eee9df00bd333773e3fff2ed541f0c6a5ba3ccd69a75fad08d95cbae4593407f",
+        "SCHEDULE_OCCUPANCY.csv": "0fa6bbf253b694d77c7fa9f10bd1f0d876fa4a386503d28b1af9e4ca5842d01c",
+        "RESULTS.csv": "72e96337bcc26c20e536d7927e969dc0e78082d9b47190a78557741b6ac2dae4"
+      }
+    },
+    "B": {
+      "score": 30,
+      "solver_status": "OPTIMAL",
+      "sha256": {
+        "SCHEDULE_ACCESS.csv": "75a544d7adf39bd1a38e3670f8aecc9a24e7daca23c056bb0d230d371900b409",
+        "SCHEDULE_OCCUPANCY.csv": "00e53fc7dfa443bcaf1e82dd9c2231ba3353a0dee2fac777e0c611cd97967eac",
+        "RESULTS.csv": "7798932a659cf8fd7377660dbb41e1152816bbbfd5ff811862ec56ed50ce7d98"
+      }
+    },
+    "C": {
+      "score": 25.2,
+      "solver_status": "OPTIMAL",
+      "sha256": {
+        "SCHEDULE_ACCESS.csv": "ef43ce371ed88c44dc5b5757915c065004d4d3125e6ec0c64a41a544fbaf6c1d",
+        "SCHEDULE_OCCUPANCY.csv": "771f01de71da6714e62e45a253a715de4a6fed7925b9c59cd873cc166d397fd5",
+        "RESULTS.csv": "86bcbe3fdf6b72e0c8a1fd41831578c0243402e0bd4792eb5ea8458072496275"
+      }
+    }
+  }
+}

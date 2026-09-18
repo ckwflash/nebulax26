@@ -10,6 +10,20 @@
     "typecheck:worker": "tsc --noEmit -p tsconfig.worker.json",
     "deploy": "npm run build && wrangler deploy"
   },
-  "dependencies": {"react": "^19.0.0", "react-dom": "^19.0.0", "lucide-react": "^0.468.0", "@cloudflare/containers": "^0.0.30"},
-  "devDependencies": {"@types/react": "^19.0.0", "@types/react-dom": "^19.0.0", "@vitejs/plugin-react": "^4.3.4", "typescript": "^5.7.3", "vite": "^6.1.0", "wrangler": "^4.0.0", "@cloudflare/workers-types": "^4.20260901.0"}
+  "dependencies": {
+    "@cloudflare/containers": "^0.3.7",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260918.1",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "prettier": "^3.9.8",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0",
+    "wrangler": "^4.134.0"
+  }
 }

@@ -1,0 +1,100 @@
+# Nightshift
+
+A working railway access planner for NebulaX PS1: CP-SAT scheduling, independent local validation, timeline and capacity views, conversational explanations, immutable what-if previews, and CSV exports.
+
+## Run locally
+
+Requirements: Python 3.11+, Node 22+, and `uv`.
+
+```sh
+uv sync --extra test
+npm ci
+bash scripts/dev.sh
+```
+
+Open http://127.0.0.1:5173. The API runs at http://127.0.0.1:8000; API documentation is at `/docs`. Stop the dev script with Ctrl+C. Alternatively run `uv run uvicorn trackaccess.api:app --port 8000` and `npm run dev` in separate terminals.
+
+The app opens with the locally checked public A schedule. Choose B/C and Run planner, expand a contract, ask the control room about it, or upload eight CSV files/a ZIP. Previews do not automatically replace the selected schedule. Export is enabled only for complete, locally checked schedules.
+
+## Conversation
+
+No API key is required for deterministic evidence mode. It recognises contract/activity explanations, schedule summaries, bottleneck requests, scenario previews and fully specified capacity changes. It does not pretend to be an unrestricted language model.
+
+For model-assisted tool selection, copy `.env.example` to `.env`, set `GEMINI_API_KEY`, then restart the dev script. `GEMINI_MODEL` defaults to `gemini-3.8-flash`; free-tier account availability and quota must be checked in Google AI Studio. Keys stay on the server. If the API fails, the app returns computed evidence directly. Model output never sets scores, writes arbitrary constraints or adopts a schedule.
+
+Examples:
+
+- `Why is C006 late?`
+- `Explain A036`
+- `Preview an on-time plan`
+- `Compare scenario C`
+- `Where are the bottlenecks?`
+- `Close SEC:BET:H01_H02:EB in week 22`
+- `Set capacity 2 at SEC:ALP:S01_S02:WB in week 8`
+
+Hard closures forbid work/protection at a location for the whole selected week in every scenario. Supply reductions change nominal capacity and may be offset by B/C's permitted excess access. These are different controls.
+
+## Solver and public results
+
+```sh
+uv run python -m trackaccess inspect --instance PS1/01_data
+uv run python -m trackaccess solve --scenario all --seconds 60 --out outputs
+uv run python -m trackaccess validate --submission outputs/A
+```
+
+| Scenario | Local penalty | Contract-overrun days | ECLO accesses | Extra location-nights |
+|---|---:|---:|---:|---:|
+| A | 25.2 | 21 | 0 | 0 |
+| B | 30.0 | 0 | 6 | 0 |
+| C | 25.2 | 21 | 0 | 0 |
+
+All three reach proven optima in the implemented local model. A improves the reference sample's locally recomputed 48.3 penalty by 47.8%. The public instance solves in a few seconds on the development machine; performance on other hardware/instances varies. The solver's status/bound and analytical bounds are separately reported.
+
+`outputs/{A,B,C}` contains the required three CSVs plus a local `report.json` and `timing_witness.json`. The download ZIP contains **only the three required CSVs**. `submissions/public-results.zip` packages all three scenario folders for submission. Keep the local sidecars for reproducibility, but do not add them to a three-file submission.
+
+**No official validator is supplied.** The reference sample passes structural checks; its location-local labels cannot independently establish global timing. Nightshift-generated schedules retain an auxiliary timing witness. See [the rule ledger](docs/RULES.md) for interpretations and limitations; local checks are not official acceptance.
+
+## Verification
+
+```sh
+uv run pytest -q
+npm run build
+npm run typecheck:worker
+```
+
+Tests include public optima, 100 seeded known-feasible instances (different IDs, ordering, routes, priorities and possession types), malformed uploads, independent mutation checks, asynchronous jobs, exports, 30 deterministic conversation intents, model outage fallback, and the updated cross-contract FS+0 rule. Synthetic cases establish regression coverage, not a claim to match hidden-instance performance.
+
+## Hosting status — deployment deferred
+
+No deployment is requested or performed. Google Cloud is the likely destination. The Dockerfile packages both the React UI and Python API, and listens on `0.0.0.0:$PORT` (default 8000), matching the [Cloud Run container contract](https://docs.cloud.google.com/run/docs/container-contract). A future Cloud Run deployment needs durable checkpoint storage and CPU availability for background solves; its ephemeral filesystem is not a durable database. Choose the Google Cloud project, storage and job lifecycle before deployment. The existing R2 gateway is optional Cloudflare infrastructure, not a required dependency for local operation.
+
+The full container build remains unverified because the local Docker daemon is not running. The frontend production build, Python suite (157 tests), Worker typecheck and Worker-only packaging dry run passed.
+
+## Optional Cloudflare scaffold
+
+The repository includes a Worker, a native Python Container, R2 checkpoint gateway and Wrangler configuration. Native OR-Tools runs in the Container. Workers Paid/Containers and an authenticated Cloudflare account are required.
+
+```sh
+npx wrangler login
+npx wrangler r2 bucket create nightshift-snapshots
+npm run deploy
+```
+
+For durable checkpoints, set `NIGHTSHIFT_SNAPSHOT_URL` in Wrangler `vars` to `https://YOUR-WORKER.workers.dev/internal/snapshots`, then create a strong `NIGHTSHIFT_INTERNAL_SECRET` through `npx wrangler secret put NIGHTSHIFT_INTERNAL_SECRET`. Set the same secret through that binding; it is passed to the Container automatically. The gateway refuses requests without it. Add Gemini through `npx wrangler secret put GEMINI_API_KEY` if wanted. Redeploy after changing vars.
+
+R2 mirroring is optional locally but required for hosted restart durability. Checkpoint failures are logged; the latest local incumbent remains usable. GET on a saved running job restarts it from its checked incumbent after a container restart. The UI restores known version IDs from browser storage; there is no cross-device account system.
+
+`standard-3` provides the initial container size; four solver threads and one concurrent solve per container are configured, with a four-job queue. The container sleeps after 15 minutes without requests. Costs are separate from the chat model's free tier. Use HTTPS and put Cloudflare Access in front of a private deployment if needed; this prototype uses unguessable run IDs rather than accounts.
+
+This scaffold is retained for reference and is not the current deployment plan. No Gemini key was configured during verification. Hosted model access and remote persistence require smoke tests when hosting is selected.
+
+## Handoff
+
+- Python implementation: `trackaccess/`
+- React controller: `src/`
+- Cloudflare routing and persistence gateway: `cloudflare/worker.ts`
+- Local rules and source update: `docs/RULES.md`
+- Three-minute demonstration outline: `docs/DEMO.md`
+- CI: `.gitlab-ci.yml`
+
+The original data-pack README and participant brief remain intact. A GitLab remote and published YouTube video still need the owner's destination/account; this checkout originally had no Git repository.

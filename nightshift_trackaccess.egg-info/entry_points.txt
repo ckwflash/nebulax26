@@ -1,0 +1,2 @@
+[console_scripts]
+trackaccess = trackaccess.__main__:main

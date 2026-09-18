@@ -36,6 +36,8 @@ def validate(instance: Instance, schedule: Schedule, overrides=()):
             fail("allocation", f"{aid}: access-night index exceeds the contract cap.")
         if schedule.scenario == "A" and row.eclo:
             fail("eclo", f"{aid}: Scenario A forbids ECLO.")
+        if any(o.closed and o.week == week and o.location_id in instance.protected[aid] for o in overrides):
+            fail("closure", f"{aid}, week {week}: work or protection enters an explicitly closed location.")
     complete, finish, supplied, weighted = 0, {}, 0, 0
     for aid, a in instance.activities.items():
         rows = access[aid]
@@ -143,7 +145,7 @@ def validate(instance: Instance, schedule: Schedule, overrides=()):
     contract_details, total_late, tiers = [], 0, {"1": 0, "2": 0, "3": 0}
     for cid, p in instance.projects.items():
         week = max((finish[a.activity_id] for a in instance.activities.values() if a.contract_number == cid), default=0)
-        completion = instance.week_end(week)
+        completion = instance.week_end(week) if week else instance.start
         late = max(0, (completion - p.planned_completion_date).days)
         total_late += late
         tiers[str(p.contract_priority)] += late

@@ -1,7 +1,8 @@
 {
+  "instance_id": "4614ef3b6b98b084",
   "solver_status": "OPTIMAL",
-  "elapsed_seconds": 2.49,
-  "solutions": 39,
+  "elapsed_seconds": 2.76,
+  "solutions": 30,
   "model_bound": 25.2,
   "validation": {
     "scenario": "A",
@@ -744,7 +745,7 @@
       {
         "location_id": "PLAT:ALP:S03:WB",
         "week": 3,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S03:WB:3"
@@ -984,7 +985,7 @@
       {
         "location_id": "PLAT:ALP:S04:WB",
         "week": 3,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S04:WB:3"
@@ -1520,7 +1521,7 @@
       {
         "location_id": "PLAT:ALP:S06:WB",
         "week": 19,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S06:WB:19"
@@ -1688,7 +1689,7 @@
       {
         "location_id": "PLAT:ALP:S07:WB",
         "week": 19,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S07:WB:19"
@@ -2880,7 +2881,7 @@
       {
         "location_id": "PLAT:BET:S15:EB",
         "week": 12,
-        "used": 1,
+        "used": 2,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S15:EB:12"
@@ -3304,7 +3305,7 @@
       {
         "location_id": "PLAT:BET:S17:EB",
         "week": 12,
-        "used": 1,
+        "used": 2,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S17:EB:12"
@@ -3920,7 +3921,7 @@
       {
         "location_id": "SEC:ALP:S03_S04:WB",
         "week": 3,
-        "used": 2,
+        "used": 1,
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:ALP:S03_S04:WB:3"
@@ -4504,7 +4505,7 @@
       {
         "location_id": "SEC:ALP:S06_S07:WB",
         "week": 19,
-        "used": 2,
+        "used": 1,
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:ALP:S06_S07:WB:19"
@@ -5488,7 +5489,7 @@
       {
         "location_id": "SEC:BET:S15_S16:EB",
         "week": 12,
-        "used": 1,
+        "used": 2,
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:BET:S15_S16:EB:12"
@@ -5855,7 +5856,7 @@
       }
     ],
     "eclo_windows": {},
-    "sharing_saved": 178
+    "sharing_saved": 181
   },
   "interpretation": "Local conservative temporal-witness model. Official validator unavailable."
 }

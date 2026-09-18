@@ -1,7 +1,8 @@
 {
+  "instance_id": "4614ef3b6b98b084",
   "solver_status": "OPTIMAL",
-  "elapsed_seconds": 3.27,
-  "solutions": 59,
+  "elapsed_seconds": 2.79,
+  "solutions": 34,
   "model_bound": 25.2,
   "validation": {
     "scenario": "C",
@@ -744,7 +745,7 @@
       {
         "location_id": "PLAT:ALP:S03:WB",
         "week": 3,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S03:WB:3"
@@ -984,7 +985,7 @@
       {
         "location_id": "PLAT:ALP:S04:WB",
         "week": 3,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S04:WB:3"
@@ -2856,7 +2857,7 @@
       {
         "location_id": "PLAT:BET:S15:EB",
         "week": 9,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S15:EB:9"
@@ -3112,7 +3113,7 @@
       {
         "location_id": "PLAT:BET:S16:EB",
         "week": 12,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S16:EB:12"
@@ -3920,7 +3921,7 @@
       {
         "location_id": "SEC:ALP:S03_S04:WB",
         "week": 3,
-        "used": 2,
+        "used": 1,
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:ALP:S03_S04:WB:3"
@@ -5855,7 +5856,7 @@
       }
     ],
     "eclo_windows": {},
-    "sharing_saved": 183
+    "sharing_saved": 188
   },
   "interpretation": "Local conservative temporal-witness model. Official validator unavailable."
 }

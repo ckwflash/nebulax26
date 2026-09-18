@@ -37,14 +37,15 @@ Think of track scheduling like managing rolling construction zones along a multi
 1. **Tunnel Sectors & Platform Sectors:** Railway split into station **platform sectors** (`PLAT`) and track **tunnel sectors** between stations (`SEC`). Work from station A to B occupies every tunnel sector and platform sector in between.
 2. **Maintenance Priority & Remaining Access Pool:** In-house maintenance takes priority first (patrol, grinding, signaling), reserving its nights. **Remaining nights** per segment (e.g. `S01–S02`, 4 nights in Week 4, per `LOCATION_SUPPLY`) pass to the **LTA works scheduler**.
 3. **Scheduler's Allocation Power:** LTA scheduler distributes remaining nights across contracted programmes (e.g. `C001`, `C002`) to best meet delivery goals.
-4. **Weekly Access Cap:** `PROJECT_DETAILS.number_of_maximum_access_per_week` is the per-contract weekly cap — 2 access-nights per week for `Live` contracts, 3 for all others, the same value every week of the horizon. This flat column is the cap the validator enforces directly (§2.4 rule 6).
+4. **Weekly Access Cap:** `PROJECT_DETAILS.number_of_maximum_access_per_week` is the per-contract weekly cap — 2 access-nights per week for `Live` contracts, 3 for all others, the same value every week of the horizon. This flat column is the cap the validator enforces directly (§2.4 rule 7).
 5. **Co-Sharing:** A `PC` activity can **co-share** its location slot with a `C` activity. `PC` and `C` are already buffer-free against each other by rule, so co-sharing isn't waiving a buffer that would otherwise apply — it's allowed to pack a `PC` and a `C` into the same slot at the same time. `C`and other `C` can also co-share the same location at the same time.
 
    *Example:* Tunnel sector `S01–S02` has 1 slot on a given night. Contract `C001` needs `PC` there and Contract `C002` needs `C` there. Both fit in that one slot simultaneously — no buffer between them, so no exclusion zone to negotiate.
 6. **Safety Buffers:** Non-co-sharing activities get exclusion zones ahead/behind the worksite to prevent collisions.
 7. **Live Rail (750V):** Live-rail work cuts third-rail power; closures **mirror onto the opposite bound** (`EB ↔ WB`).
 8. **Interchange stations:** Are stations with the same station name, with two distinct tunnel and platform sectors. They have unique exception rules when live activities are carried out. refer to 2.2 below.
-9. **Why Re-Planning Matters:** Master plans are set weeks ahead, but disruptions (urgent maintenance, defects, delays) force hours of manual replanning — buffers, mirroring, co-sharing all re-checked by hand. Tooling must automate impact assessment and re-optimization with minimal churn.
+9. **Predecessors:** Some activities can't start until another activity finishes — e.g. track renewal before signaling work on the same section. `predecessor_activity_id` marks this dependency; refer to 2.4 rule 3.
+10. **Why Re-Planning Matters:** Master plans are set weeks ahead, but disruptions (urgent maintenance, defects, delays) force hours of manual replanning — buffers, mirroring, co-sharing all re-checked by hand. Tooling must automate impact assessment and re-optimization with minimal churn.
 
 ### 2.2 The Network
 
@@ -77,6 +78,7 @@ Think of track scheduling like managing rolling construction zones along a multi
 - Working section (`start_location_id` → `end_location_id`).
 - Workload in access-nights (`total_accesses`).
 - `planned_start_date`, `activity_priority` (1 High, 2 Default, 3 Low).
+- `predecessor_activity_id` (nullable): some activities depend on another activity finishing first — see §2.4 rule 3.
 
 ### 2.4 Operating Rules: Strict Constraints vs Optimization Targets
 
@@ -84,13 +86,14 @@ Think of track scheduling like managing rolling construction zones along a multi
 
 1. **Workload Conservation:** Every activity in `08_ACTIVITY_DETAILS.csv` must be scheduled, nightly yields summing to ≥ `total_accesses` (standard night = 1.0; ECLO = 1.5). None dropped, omitted, or partial — mandatory gate before any quality scoring.
 2. **Planned Start Date:** No activity starts before its planned start week.
-3. **Closures and Buffers:** Occupied night maintenance work closes a sector; no external activity may enter it that night. Only `Live`/`Non-Live(Consist)` carry a buffer (`Non-Live(Others)` has none); `Live` mirrors closure to opposite bound, and — only for `Live` — also crosses onto the other line's `H01_H02` tunnel sector/platforms at the interchange. Non-Live work never crosses lines there; each line's tunnel and platform sectors are independent capacity. Buffers never overlap — a `Live`/`Non-Live(Consist)` work whose buffer reaches, say, `S02` pushes the next `Live`/`Non-Live(Consist)` work on that bound to start no earlier than `S03`.
-4. **Possession Locations & Legal Mixes:** Per location-week, locations pack up to capacity: one `PM` alone, or one `PC` + ≤3 `C`, or ≤4 `C`.
-5. **Co-Sharing Exemption:** Same `(location_id, week, co_share_group)` = one possession (one access-night slot) — no buffers between them, exempt from each other's closures. Different `co_share_group` values at the same location/week are separate possessions on separate nights within that week's allocation, and buffers apply normally between them.
-6. **Weekly Allocation:** Contract type cannot use more distinct `access_night` values in a week than its granted access-nights (`number_of_maximum_access_per_week`).
-7. **Workfronts:** At most `number_of_workfronts` distinct activities of that type may share the same `access_night` — concurrent teams. Combined with rule 6, a contract+type's max distinct activities in a week is `number_of_maximum_access_per_week × number_of_workfronts` (nights available × teams per night).
-8. **Early Closure Late Opening**: Scheduler may request for additional time per night by having early closure/late opening(ECLO). This increases the work duration per night, however, will impact the public commuters travelling hours.
-9. **ECLO Continuity Window (Scenario C only):** Sporadic ECLO nights confuse commuters, so under Scenario C (refer to 2.5) every `eclo=1` access affecting a given line must fall within one continuous span of at most 2 calendar weeks — chosen independently per line (Alpha and Beta each get their own window). A cross-line `Live` activity's ECLO nights must fit both lines' windows at once. Since an activity gets at most one access-night per week, this caps any single activity at 2 ECLO nights within C. **Scenario B is exempt** — it's already the "pay whatever it takes to hit the schedule" scenario, so its ECLO nights may land anywhere. Vacuous in Scenario A, where ECLO is already forbidden outright.
+3. **Predecessor Precedence:** If an activity names another as `predecessor_activity_id`, it must not start until that predecessor has finished — finish-to-start, zero lag (`FS+0`). "Finished" = the week of the predecessor's last scheduled access night; the successor's first scheduled access night must fall in a strictly later week. Cross-contract predecessor links are allowed; predecessor cycles are not.
+4. **Closures and Buffers:** Occupied night maintenance work closes a sector; no external activity may enter it that night. Only `Live`/`Non-Live(Consist)` carry a buffer (`Non-Live(Others)` has none); `Live` mirrors closure to opposite bound, and — only for `Live` — also crosses onto the other line's `H01_H02` tunnel sector/platforms at the interchange. Non-Live work never crosses lines there; each line's tunnel and platform sectors are independent capacity. Buffers never overlap — a `Live`/`Non-Live(Consist)` work whose buffer reaches, say, `S02` pushes the next `Live`/`Non-Live(Consist)` work on that bound to start no earlier than `S03`.
+5. **Possession Locations & Legal Mixes:** Per location-week, locations pack up to capacity: one `PM` alone, or one `PC` + ≤3 `C`, or ≤4 `C`.
+6. **Co-Sharing Exemption:** Same `(location_id, week, co_share_group)` = one possession (one access-night slot) — no buffers between them, exempt from each other's closures. Different `co_share_group` values at the same location/week are separate possessions on separate nights within that week's allocation, and buffers apply normally between them.
+7. **Weekly Allocation:** Contract type cannot use more distinct `access_night` values in a week than its granted access-nights (`number_of_maximum_access_per_week`).
+8. **Workfronts:** At most `number_of_workfronts` distinct activities of that type may share the same `access_night` — concurrent teams. Combined with rule 7, a contract+type's max distinct activities in a week is `number_of_maximum_access_per_week × number_of_workfronts` (nights available × teams per night).
+9. **Early Closure Late Opening**: Scheduler may request for additional time per night by having early closure/late opening(ECLO). This increases the work duration per night, however, will impact the public commuters travelling hours.
+10. **ECLO Continuity Window (Scenario C only):** Sporadic ECLO nights confuse commuters, so under Scenario C (refer to 2.5) every `eclo=1` access affecting a given line must fall within one continuous span of at most 2 calendar weeks — chosen independently per line (Alpha and Beta each get their own window). A cross-line `Live` activity's ECLO nights must fit both lines' windows at once. Since an activity gets at most one access-night per week, this caps any single activity at 2 ECLO nights within C. **Scenario B is exempt** — it's already the "pay whatever it takes to hit the schedule" scenario, so its ECLO nights may land anywhere. Vacuous in Scenario A, where ECLO is already forbidden outright.
 
 ### 2.5 Objectives & Simulation Scenarios
 
@@ -151,7 +154,7 @@ Each of the three scenarios (A, B, C) is a distinct answer key: its own policy t
    *(eclo is 0 for standard night, 1 for ECLO night. `access_night` is which
    of that (contract_number, activity_type)'s granted weekly nights (1..
    `number_of_maximum_access_per_week`) this access falls on — a local
-   accounting index per contract+type+week, independent of location/sector. It's what rule 6 (workfronts) and rule 7 (weekly allocation)
+   accounting index per contract+type+week, independent of location/sector. It's what rule 8 (workfronts) and rule 7 (weekly allocation)
    below are checked against.)*
 2. **`SCHEDULE_OCCUPANCY.csv`** — Location and slot assignment per week:
    `activity_id,week,location_id,co_share_group`
@@ -215,7 +218,7 @@ You receive **instance files** (the demand book for a planning horizon) and retu
 | Dimension                        | What Judges Look For                                                                                                                                                                                                                             |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **1. Problem Fit**         | Handles Scenarios A, B & C sensibly; output is feasible and well-formed; trade-offs and displaced work are explained, not just produced. How you get there is open — any reasonable approach that addresses the real scheduling problem counts. |
-| **2. Technical Execution** | Scored directly from the reference**validator's** output run against hidden instances — feasibility, violation count, and score relative to the reference solver's benchmark.                                                             |
+| **2. Technical Execution** | Scored directly from the reference **validator's** output run against hidden instances — feasibility, violation count, and score relative to the reference solver's benchmark.                                                             |
 | **3. Ease of Use**         | A works controller could actually pick it up and use it. Interface form is your choice — judges are looking for genuine usability, not a specific set of features.                                                                              |
 
 ### 3.3 Bonus Scope & Beyond-the-Schedule Innovation

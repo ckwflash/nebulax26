@@ -14,6 +14,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from .domain import FILES, InputError, Instance, Override, Scenario, Schedule
@@ -31,7 +32,10 @@ BASE = Path(__file__).resolve().parent.parent
 
 
 def instance_for(instance_id):
-    saved = store.get(f"instances/{instance_id}")
+    try:
+        saved = store.get(f"instances/{instance_id}")
+    except ValueError:
+        raise HTTPException(422, "Invalid demand-book identifier.")
     if not saved:
         raise HTTPException(404, "Demand book not found. Upload the eight CSV files again.")
     return Instance(saved["files"], saved["name"])
@@ -61,8 +65,11 @@ def demo():
     schedule = read_schedule(seed if (seed / "SCHEDULE_ACCESS.csv").exists() else BASE / "PS1/03_submission_sample")
     result = validate(instance, schedule)
     run_id = f"reference-{instance.id}" if not result["feasible"] else f"public-A-{instance.id}"
+    metadata = json.loads((seed / "report.json").read_text()) if result["feasible"] and (seed / "report.json").exists() else {}
     run = {"id": run_id, "instance_id": instance.id, "scenario": "A", "status": "completed", "label": "Public A" if result["feasible"] else "Reference A", "created_at": now(), "overrides": [], "baseline_id": None,
            "schedule": schedule.model_dump(mode="json"), "validation": result, "solver_status": "PRECOMPUTED" if result["feasible"] else "REFERENCE", "elapsed_seconds": 0, "model_bound": None}
+    if metadata:
+        run.update(solver_status=metadata.get("solver_status", "PRECOMPUTED"), elapsed_seconds=metadata.get("elapsed_seconds", 0), model_bound=metadata.get("model_bound"))
     store.put(f"runs/{run_id}", run)
     return {"instance": instance.summary(), "run": run}
 
@@ -132,6 +139,14 @@ def execute_run(run_id):
         # A recovered incumbent takes precedence over the original warm start.
         baseline_data = run.get("schedule") or (baseline_run or {}).get("schedule")
         baseline = Schedule(**baseline_data) if baseline_data else None
+        if baseline:
+            retained = baseline.model_copy(deep=True)
+            retained.scenario = run["scenario"]
+            for row in retained.results:
+                row.scenario = run["scenario"]
+            checked = validate(instance, retained, overrides)
+            if checked["feasible"]:
+                run.update(schedule=retained.model_dump(mode="json"), validation=checked)
         run.update(status="running", started_at=now())
         store.put(f"runs/{run_id}", run)
         last_save = 0
@@ -230,3 +245,9 @@ async def chat(request: ChatRequest):
     if run["instance_id"] != request.instance_id or not run.get("schedule"):
         raise HTTPException(422, "Select a completed schedule for this demand book first.")
     return await respond(instance_for(request.instance_id), run, request.message, start_run)
+
+
+# The portable container serves the built UI and API from the same origin.
+# Keep this last so static routing cannot shadow API routes.
+if (BASE / "dist/index.html").exists():
+    app.mount("/", StaticFiles(directory=BASE / "dist", html=True), name="frontend")

@@ -232,7 +232,7 @@ class Instance:
             required_eclo = max(0, 2 * (a.total_accesses - slots))
             eclo += required_eclo
             if days or required_eclo:
-                details.append({"activity_id": aid, "contract_number": a.contract_number, "standard_accesses": a.total_accesses, "available_weeks": slots, "minimum_overrun_days": days, "minimum_eclo": required_eclo, "evidence_id": f"bound:{aid}"})
+                details.append({"activity_id": aid, "contract_number": a.contract_number, "standard_accesses": a.total_accesses, "available_weeks": slots, "minimum_overrun_days": days, "minimum_eclo": required_eclo, "deadline_feasible_with_eclo": 3 * slots >= 2 * a.total_accesses, "evidence_id": f"bound:{aid}"})
         return {"A": round(penalty, 1), "B": 5 * eclo, "minimum_b_eclo": eclo, "details": details, "note": "Analytical lower bounds; resources may increase the score. Local rule interpretation."}
 
 
@@ -271,7 +271,8 @@ class Override(Record):
     location_id: str
     week: int = Field(ge=1)
     capacity: int = Field(ge=0, le=50)
+    closed: bool = False
 
 
 def capacity_at(instance, location, week, overrides=()):
-    return next((o.capacity for o in reversed(overrides) if o.location_id == location and o.week == week), instance.supply[location])
+    return next((0 if o.closed else o.capacity for o in reversed(overrides) if o.location_id == location and o.week == week), instance.supply[location])

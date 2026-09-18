@@ -32,6 +32,8 @@ def solve(instance: Instance, scenario: str, seconds=60, overrides=(), baseline:
             x[aid, w] = model.new_bool_var(f"work_{aid}_{w}")
             e[aid, w] = model.new_bool_var(f"eclo_{aid}_{w}")
             model.add(e[aid, w] <= x[aid, w])
+            if any(o.closed and o.week == w and o.location_id in instance.protected[aid] for o in overrides):
+                model.add(x[aid, w] == 0)
             if scenario == "A":
                 model.add(e[aid, w] == 0)
             for n in slots:
@@ -153,8 +155,8 @@ def solve(instance: Instance, scenario: str, seconds=60, overrides=(), baseline:
                     occ.append(Occupancy(activity_id=aid, week=w, location_id=loc, co_share_group=f"p{n + 1}"))
         results = []
         for cid, p in instance.projects.items():
-            last = max(r.week for r in rows if instance.activities[r.activity_id].contract_number == cid)
-            completion = instance.week_end(last)
+            last = max((r.week for r in rows if instance.activities[r.activity_id].contract_number == cid), default=0)
+            completion = instance.week_end(last) if last else instance.start
             results.append(Completion(scenario=scenario, contract_number=cid, simulated_completion_date=completion, overrun_days=max(0, (completion - p.planned_completion_date).days)))
         return Schedule(scenario=scenario, access=rows, occupancy=occ, results=results, witness=witness)
 
@@ -180,7 +182,7 @@ def solve(instance: Instance, scenario: str, seconds=60, overrides=(), baseline:
     collector = Incumbents()
     status = engine.solve(model, collector)
     status_name = engine.status_name(status)
-    result = {"solver_status": status_name, "elapsed_seconds": round(time.monotonic() - started, 2), "solutions": collector.count,
+    result = {"instance_id": instance.id, "solver_status": status_name, "elapsed_seconds": round(time.monotonic() - started, 2), "solutions": collector.count,
               "model_bound": max(0, int(engine.best_objective_bound // scale) / 10) if status in (cp_model.FEASIBLE, cp_model.OPTIMAL) else None,
               "schedule": collector.best.model_dump(mode="json") if collector.best else None,
               "validation": collector.report,
