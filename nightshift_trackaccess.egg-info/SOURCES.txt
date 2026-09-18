@@ -8,12 +8,15 @@ nightshift_trackaccess.egg-info/requires.txt
 nightshift_trackaccess.egg-info/top_level.txt
 tests/test_api.py
 tests/test_engine.py
+tests/test_model.py
+tests/test_store.py
 trackaccess/__init__.py
 trackaccess/__main__.py
 trackaccess/api.py
 trackaccess/conversation.py
 trackaccess/domain.py
 trackaccess/export.py
+trackaccess/model.py
 trackaccess/solver.py
 trackaccess/store.py
 trackaccess/validation.py

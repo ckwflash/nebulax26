@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import threading
 import time
 from collections import defaultdict
 from itertools import combinations
@@ -11,7 +13,7 @@ from .domain import Access, Completion, Instance, Occupancy, Schedule, capacity_
 from .validation import validate
 
 
-def solve(instance: Instance, scenario: str, seconds=60, overrides=(), baseline: Schedule | None = None, callback: Callable | None = None):
+def solve(instance: Instance, scenario: str, seconds=60, overrides=(), baseline: Schedule | None = None, callback: Callable | None = None, cancel_event=None):
     if scenario not in ("A", "B", "C"):
         raise ValueError("Scenario must be A, B or C.")
     started = time.monotonic()
@@ -177,10 +179,25 @@ def solve(instance: Instance, scenario: str, seconds=60, overrides=(), baseline:
 
     engine = cp_model.CpSolver()
     engine.parameters.max_time_in_seconds = max(0.1, seconds - (time.monotonic() - started))
-    engine.parameters.num_search_workers = 4
+    engine.parameters.num_search_workers = max(1, min(32, int(os.getenv("NIGHTSHIFT_SOLVER_THREADS", "4"))))
     engine.parameters.random_seed = 42
     collector = Incumbents()
-    status = engine.solve(model, collector)
+    finished = threading.Event()
+    watcher = None
+    if cancel_event is not None:
+        def watch_cancellation():
+            while not finished.wait(.1):
+                if cancel_event.is_set():
+                    engine.stop_search()
+                    return
+        watcher = threading.Thread(target=watch_cancellation, daemon=True)
+        watcher.start()
+    try:
+        status = engine.solve(model, collector)
+    finally:
+        finished.set()
+        if watcher:
+            watcher.join(timeout=1)
     status_name = engine.status_name(status)
     result = {"instance_id": instance.id, "solver_status": status_name, "elapsed_seconds": round(time.monotonic() - started, 2), "solutions": collector.count,
               "model_bound": max(0, int(engine.best_objective_bound // scale) / 10) if status in (cp_model.FEASIBLE, cp_model.OPTIMAL) else None,

@@ -20,7 +20,9 @@ The app opens with the locally checked public A schedule. Choose B/C and Run pla
 
 No API key is required for deterministic evidence mode. It recognises contract/activity explanations, schedule summaries, bottleneck requests, scenario previews and fully specified capacity changes. It does not pretend to be an unrestricted language model.
 
-For model-assisted tool selection, copy `.env.example` to `.env`, set `GEMINI_API_KEY`, then restart the dev script. `GEMINI_MODEL` defaults to `gemini-3.8-flash`; free-tier account availability and quota must be checked in Google AI Studio. Keys stay on the server. If the API fails, the app returns computed evidence directly. Model output never sets scores, writes arbitrary constraints or adopts a schedule.
+The Google Cloud deployment uses **Vertex AI / Gemini 3.8 Flash** to select scheduling tools from natural-language requests. It authenticates with the attached Cloud Run service account; no API key or downloadable service-account key is needed. Explanations and scores come from checked schedule evidence. Model output never sets scores, supplies unconfirmed change parameters or adopts a schedule. Provider errors and quota limits fall back to computed evidence with a visible notice.
+
+To use Vertex locally, copy `.env.example` to `.env`, set `NIGHTSHIFT_CHAT_PROVIDER=vertex`, `VERTEX_PROJECT` to your Google Cloud project, and configure Application Default Credentials (`gcloud auth application-default login`). The identity needs `aiplatform.endpoints.predict` and the project needs the Vertex AI API enabled. `VERTEX_LOCATION` defaults to `global`; `VERTEX_MODEL` defaults to `gemini-3.8-flash`. Restart the dev script after configuration changes. Alternatively, set `GEMINI_API_KEY` with provider `auto` or `gemini` to use the Gemini Developer API. Set provider `evidence` to disable model calls.
 
 Examples:
 
@@ -64,11 +66,11 @@ npm run typecheck:worker
 
 Tests include public optima, 100 seeded known-feasible instances (different IDs, ordering, routes, priorities and possession types), malformed uploads, independent mutation checks, asynchronous jobs, exports, 30 deterministic conversation intents, model outage fallback, and the updated cross-contract FS+0 rule. Synthetic cases establish regression coverage, not a claim to match hidden-instance performance.
 
-## Hosting status — deployment deferred
+## Google Cloud deployment
 
-No deployment is requested or performed. Google Cloud is the likely destination. The Dockerfile packages both the React UI and Python API, and listens on `0.0.0.0:$PORT` (default 8000), matching the [Cloud Run container contract](https://docs.cloud.google.com/run/docs/container-contract). A future Cloud Run deployment needs durable checkpoint storage and CPU availability for background solves; its ephemeral filesystem is not a durable database. Choose the Google Cloud project, storage and job lifecycle before deployment. The existing R2 gateway is optional Cloudflare infrastructure, not a required dependency for local operation.
+The demo is live at [Nightshift on Google Cloud Run](https://nightshift-717753975344.us-central1.run.app). See [the deployment and operations guide](docs/CLOUD_RUN.md) for the temporary project, durable storage, verification results and manual shutdown commands. The container serves the UI and API together and accepts the hosting platform's `PORT` value.
 
-The full container build remains unverified because the local Docker daemon is not running. The frontend production build, Python suite (157 tests), Worker typecheck and Worker-only packaging dry run passed.
+The local test suite now passes 168 tests. Cloud Storage owns hosted state; local development needs no Google Cloud credentials. The existing Cloudflare scaffold below is optional and unused by this deployment.
 
 ## Optional Cloudflare scaffold
 

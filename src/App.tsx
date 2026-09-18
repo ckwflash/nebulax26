@@ -95,7 +95,7 @@ export default function App() {
   const [week, setWeek] = useState(22);
   const [capacity, setCapacity] = useState(0);
   const [hardClosure, setHardClosure] = useState(false);
-  const [modelConfigured, setModelConfigured] = useState(false);
+  const [modelProvider, setModelProvider] = useState("evidence");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
@@ -152,8 +152,8 @@ export default function App() {
             loaded.locations[0].id,
         );
         setWeek(Math.min(22, loaded.horizon_weeks));
-        const health = await api<{ chat_configured: boolean }>("/api/health");
-        if (alive) setModelConfigured(health.chat_configured);
+        const health = await api<{ chat_configured: boolean; chat_provider: string }>("/api/health");
+        if (alive) setModelProvider(health.chat_configured ? health.chat_provider : "evidence");
       } catch (e) {
         if (alive) setError((e as Error).message);
       }
@@ -1477,9 +1477,11 @@ export default function App() {
           <div>
             <h2>Control room</h2>
             <span>
-              {modelConfigured
-                ? "Model-assisted · evidence grounded"
-                : "Evidence mode · no API key needed"}
+              {modelProvider === "vertex"
+                ? "Vertex AI · evidence grounded"
+                : modelProvider === "gemini"
+                  ? "Model-assisted · evidence grounded"
+                  : "Evidence mode · no API key needed"}
             </span>
           </div>
           <button

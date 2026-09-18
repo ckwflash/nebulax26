@@ -13,14 +13,15 @@ from typing import Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from .domain import FILES, InputError, Instance, Override, Scenario, Schedule
 from .export import export_zip, read_schedule
+from .model import chat_config
 from .solver import solve
-from .store import Store
+from .store import LeaseLost, StorageError, Store
 from .validation import validate
 
 app = FastAPI(title="Nightshift", version="0.1.0")
@@ -53,7 +54,9 @@ def run_for(run_id):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "validation": "local", "chat_configured": bool(os.getenv("GEMINI_API_KEY")), "chat_model": os.getenv("GEMINI_MODEL", "gemini-3.8-flash")}
+    config = chat_config()
+    return {"ok": True, "validation": "local", "chat_configured": config.configured,
+            "chat_provider": config.provider, "chat_model": config.model if config.configured else None}
 
 
 @app.get("/api/demo")
@@ -130,13 +133,42 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 
+def public_run(run):
+    return {key: value for key, value in run.items() if not key.startswith("_")}
+
+
+@app.exception_handler(StorageError)
+async def storage_error_handler(request, exc):
+    return JSONResponse(status_code=503, content={"detail": str(exc)})
+
+
 def execute_run(run_id):
-    run = run_for(run_id)
+    import logging
+    lease = None
+    stopped = threading.Event()
+    cancelled = threading.Event()
+    heartbeat_thread = None
+    run = None
     try:
+        lease = store.claim_run(run_id)
+        if lease is None:
+            return
+        run = lease.snapshot()
+
+        def heartbeat():
+            while not stopped.wait(10):
+                try:
+                    lease.update()
+                except (StorageError, LeaseLost):
+                    cancelled.set()
+                    logging.getLogger(__name__).warning("Run %s lost durable ownership; stopping search", run_id)
+                    return
+
+        heartbeat_thread = threading.Thread(target=heartbeat, daemon=True)
+        heartbeat_thread.start()
         instance = instance_for(run["instance_id"])
         overrides = [Override(**o) for o in run["overrides"]]
         baseline_run = run_for(run["baseline_id"]) if run.get("baseline_id") else None
-        # A recovered incumbent takes precedence over the original warm start.
         baseline_data = run.get("schedule") or (baseline_run or {}).get("schedule")
         baseline = Schedule(**baseline_data) if baseline_data else None
         if baseline:
@@ -148,17 +180,24 @@ def execute_run(run_id):
             if checked["feasible"]:
                 run.update(schedule=retained.model_dump(mode="json"), validation=checked)
         run.update(status="running", started_at=now())
-        store.put(f"runs/{run_id}", run)
+        lease.update(public_run(run))
         last_save = 0
 
         def progress(schedule, report, metrics):
             nonlocal last_save
+            if cancelled.is_set():
+                return
             run.update(schedule=schedule.model_dump(mode="json"), validation=report, **metrics)
             if time.monotonic() - last_save > 1:
-                store.put(f"runs/{run_id}", run)
-                last_save = time.monotonic()
+                try:
+                    lease.update(public_run(run))
+                    last_save = time.monotonic()
+                except (StorageError, LeaseLost):
+                    cancelled.set()
 
-        result = solve(instance, run["scenario"], run["seconds"], overrides, baseline, progress)
+        result = solve(instance, run["scenario"], run["seconds"], overrides, baseline, progress, cancel_event=cancelled)
+        if cancelled.is_set():
+            raise LeaseLost("Run ownership or storage became unavailable")
         if not result["schedule"] and run.get("schedule"):
             checked = validate(instance, Schedule(**run["schedule"]), overrides)
             if checked["feasible"]:
@@ -169,13 +208,23 @@ def execute_run(run_id):
             before = {(r["activity_id"], r["week"], r["eclo"]) for r in baseline_run["schedule"]["access"]}
             after = {(r["activity_id"], r["week"], r["eclo"]) for r in run["schedule"]["access"]}
             run["diff"] = {"changed_activities": sorted({r[0] for r in before ^ after}), "removed_accesses": len(before - after), "added_accesses": len(after - before), "score_delta": round(run["validation"]["score"] - baseline_run["validation"]["score"], 1)}
+        stopped.set()
+        lease.update({**public_run(run), "finished_at": now()}, finish=True)
+    except (StorageError, LeaseLost):
+        logging.getLogger(__name__).warning("Run %s paused; last durable checkpoint will be recovered", run_id)
     except Exception as exc:
-        import logging
-        logging.getLogger(__name__).exception("Solve failed")
-        run.update(status="failed", error=str(exc))
+        # Log the exception type, never uploaded input or credential-bearing responses.
+        logging.getLogger(__name__).error("Run %s failed: %s", run_id, type(exc).__name__)
+        if lease:
+            try:
+                stopped.set()
+                lease.update({"status": "failed", "error": "The planner failed. Retry the run or inspect the demand book.", "finished_at": now()}, finish=True)
+            except (StorageError, LeaseLost):
+                pass
     finally:
-        run["finished_at"] = now()
-        store.put(f"runs/{run_id}", run)
+        stopped.set()
+        if heartbeat_thread:
+            heartbeat_thread.join(timeout=12)
         with job_lock:
             active_jobs.discard(run_id)
 
@@ -210,13 +259,13 @@ def start_run(request: RunRequest):
 def get_run(run_id: str):
     run = run_for(run_id)
     with job_lock:
-        if run["status"] in ("queued", "running") and run_id not in active_jobs:
+        if run["status"] in ("queued", "running") and run_id not in active_jobs and run.get("_lease", {}).get("expires_at", 0) <= store.clock():
             if len(active_jobs) < 4:
                 active_jobs.add(run_id)
                 pool.submit(execute_run, run_id)
                 run["status"] = "queued"
                 run["message"] = "Restarting from the last saved checkpoint."
-    return run
+    return public_run(run)
 
 
 @app.get("/api/runs/{run_id}/export")

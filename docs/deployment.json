@@ -1,0 +1,109 @@
+{
+  "url": "https://nightshift-717753975344.us-central1.run.app",
+  "project": "qwiklabs-gcp-00-71d4c677d0cc",
+  "region": "us-central1",
+  "service": "nightshift",
+  "revision": "nightshift-00003-lah",
+  "image_digest": "sha256:bcb37a2d3831e9b6a7b283b18f2053e9af976f27c11db119cd205d018e330950",
+  "build_id": "dab83326-39a6-4849-9212-bcd1babe6a10",
+  "public": true,
+  "runtime": {
+    "cpu": 2,
+    "memory": "4Gi",
+    "min_instances": 1,
+    "max_instances": 1,
+    "concurrency": 20,
+    "cpu_throttling": false
+  },
+  "scores": {
+    "A": 25.2,
+    "B": 30,
+    "C": 25.2
+  },
+  "recovery": {
+    "simulation": true,
+    "run_id": "3fb329978e21429cbaf37722a4be6ac6",
+    "completed_run_id": "22645a3fdf374f059c9061b36ce060e9",
+    "passed": true,
+    "completed_version_survived": true,
+    "instance_survived": true,
+    "recovered_score": 25.2
+  },
+  "browser": {
+    "upload": true,
+    "solve": true,
+    "explanation": true,
+    "preview": true,
+    "adopt": true,
+    "download_event": true,
+    "console_errors": 0
+  },
+  "official_validator_verified": false,
+  "previous_release": {
+    "revision": "nightshift-00002-srz",
+    "image_digest": "sha256:03fcfec740630b5f13c6df437ecb75550269aa06c628245ba760aa0fc7a80ddc",
+    "build_id": "5cfb3bbc-a482-4d38-bb5b-a97b3b467ac9"
+  },
+  "tests_passed": 190,
+  "chat": {
+    "provider": "vertex",
+    "model": "gemini-3.8-flash",
+    "location": "global",
+    "project": "qwiklabs-gcp-00-71d4c677d0cc",
+    "authentication": "attached service account / ADC",
+    "custom_role": "nightshiftVertexPredictor",
+    "permissions": [
+      "aiplatform.endpoints.predict"
+    ],
+    "api_key_required": false,
+    "deterministic_fallback": true
+  },
+  "vertex_verification": {
+    "routing": [
+      {
+        "tool": "capacity",
+        "mode": "vertex",
+        "evidence_count": 4
+      },
+      {
+        "tool": "explain",
+        "mode": "vertex",
+        "evidence_count": 2
+      },
+      {
+        "tool": "summary",
+        "mode": "vertex",
+        "evidence_count": 3
+      },
+      {
+        "tool": "preview_scenario",
+        "mode": "vertex",
+        "evidence_count": 0
+      }
+    ],
+    "baseline_unchanged": true,
+    "incomplete_change_clarifies": true,
+    "preview_score": 30,
+    "saved_scores": {
+      "A": 25.2,
+      "B": 30,
+      "C": 25.2
+    },
+    "export_verified": true,
+    "public_health": true,
+    "public_browser_question": true,
+    "browser_console_errors": 0,
+    "bucket_anonymous_status": 403,
+    "traffic_percent": 100,
+    "log_check": {
+      "entries": 83,
+      "server_errors": 0,
+      "detected_patterns": {
+        "bearer": false,
+        "private_key": false,
+        "google_api_key": false,
+        "uploaded_csv_header": false
+      }
+    }
+  }
+}

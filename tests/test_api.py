@@ -17,6 +17,8 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("NIGHTSHIFT_DATA", str(tmp_path))
     monkeypatch.delenv("NIGHTSHIFT_SNAPSHOT_URL", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("NIGHTSHIFT_CHAT_PROVIDER", raising=False)
+    monkeypatch.delenv("VERTEX_PROJECT", raising=False)
     monkeypatch.setattr(server, "store", Store())
     with TestClient(server.app) as c:
         yield c
@@ -133,3 +135,24 @@ def test_restart_recovers_checked_incumbent(client):
     assert status['status'] == 'completed', status
     assert status['validation']['feasible']
     assert status['validation']['score'] == 25.2
+
+
+def test_durable_storage_error_is_visible(client, monkeypatch):
+    from trackaccess.store import StorageError
+    def unavailable(*args):
+        raise StorageError('Durable storage is unavailable. Please retry.')
+    monkeypatch.setattr(server.store, 'get', unavailable)
+    response = client.get('/api/runs/unavailable')
+    assert response.status_code == 503
+    assert 'Durable storage' in response.json()['detail']
+
+
+def test_live_foreign_lease_is_not_restarted_or_exposed(client):
+    demo = client.get('/api/demo').json()
+    run = {**demo['run'], 'id': 'foreign-worker', 'status': 'running',
+           'seconds': 1, '_lease': {'owner': 'foreign', 'expires_at': time.time()+60}}
+    server.store.put('runs/foreign-worker', run)
+    response = client.get('/api/runs/foreign-worker').json()
+    assert response['status'] == 'running'
+    assert '_lease' not in response
+    assert 'foreign-worker' not in server.active_jobs
