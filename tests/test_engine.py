@@ -261,3 +261,25 @@ def test_c_forced_eclo_stays_continuous():
     for window in result['validation']['eclo_windows'].values():
         assert window[1]-window[0]<=1
     assert result['validation']['soft_scores']['eclo_nights_total']==12
+
+
+def test_tight_b_deadline_still_delivers_a_schedule(public):
+    """An unreachable B deadline must be priced, not filtered into INFEASIBLE.
+
+    The brief forbids declaring a case impossible, so B slips dates only after its
+    supply levers are spent, and the checker still reports the overrun honestly.
+    """
+    files = dict(public.files)
+    rows = list(csv.DictReader(io.StringIO(files[FILES["projects"]])))
+    for row in rows:
+        row["planned_completion_date"] = str(public.week_end(6))
+    files[FILES["projects"]] = table(rows)
+    result = solve(Instance(files), "B", 30)
+
+    assert result["schedule"] is not None, "B returned no schedule for a tight deadline"
+    report = result["validation"]
+    assert report["coverage_percent"] == 100.0
+    assert report["completed_activities"] == report["total_activities"]
+    # Overrun is the only thing allowed to break; nothing structural may.
+    assert {v["rule"] for v in report["hard_violations"]} == {"planned_date"}
+    assert result["solver_status"] == "OPTIMAL_WITH_OVERRUN"

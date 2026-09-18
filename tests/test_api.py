@@ -155,3 +155,31 @@ def test_live_foreign_lease_is_not_restarted_or_exposed(client):
     assert response['status'] == 'running'
     assert '_lease' not in response
     assert 'foreign-worker' not in server.active_jobs
+
+
+def test_late_b_fallback_cannot_be_exported(client):
+    from scripts.generate_test_datasets import csv_text
+    from trackaccess.domain import FILES
+
+    original = Instance.from_directory('testdata/datasets/10_impossible_workload')
+    rows = [dict(row) for row in original.tables['parameters']]
+    for row in rows:
+        if row['key'] == 'horizon_weeks':
+            row['value'] = '4'
+    files = {**original.files, FILES['parameters']: csv_text(rows)}
+    uploaded = client.post('/api/instances', files=[('files', (name, content, 'text/csv')) for name, content in files.items()])
+    assert uploaded.status_code == 200
+    response = client.post('/api/runs', json={'instance_id': uploaded.json()['id'], 'scenario': 'B', 'seconds': 5})
+    assert response.status_code == 202
+    run_id = response.json()['id']
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        run = client.get('/api/runs/' + run_id).json()
+        if run['status'] not in ('queued', 'running'):
+            break
+        time.sleep(.1)
+    assert run['status'] == 'completed' and run['schedule']
+    assert run['solver_status'] == 'OPTIMAL_WITH_OVERRUN'
+    assert run['validation']['coverage_percent'] == 100
+    assert not run['validation']['feasible']
+    assert client.get('/api/runs/' + run_id + '/export').status_code == 409

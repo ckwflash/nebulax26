@@ -110,7 +110,20 @@ def test_longer_horizon_restores_feasibility_but_not_hard_deadline(cases, scenar
         for row in tables["parameters"]:
             if row["key"] == "horizon_weeks":
                 row["value"] = "4"
-    check(altered(cases["10_impossible_workload"], extend), scenario, score)
+    instance = altered(cases["10_impossible_workload"], extend)
+    if scenario == "B":
+        # The remote solver retains a diagnostic plan when only the deadline
+        # is impossible. It must still fail the strict B feasibility gate.
+        result = solve(instance, scenario, 5)
+        assert result["solver_status"] == "OPTIMAL_WITH_OVERRUN"
+        assert result["deadline_relaxed"] and result["schedule"]
+        report = result["validation"]
+        assert report["coverage_percent"] == 100 and report["safety_verified"]
+        assert not report["feasible"]
+        assert {v["rule"] for v in report["hard_violations"]} == {"planned_date"}
+        assert "objective_score" not in report["soft_scores"]
+    else:
+        check(instance, scenario, score)
 
 
 def test_scale_case_has_disjoint_protection_and_independent_windows(cases):
