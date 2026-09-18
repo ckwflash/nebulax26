@@ -1,0 +1,192 @@
+from __future__ import annotations
+
+import time
+from collections import defaultdict
+from itertools import combinations
+from typing import Callable
+
+from ortools.sat.python import cp_model
+
+from .domain import Access, Completion, Instance, Occupancy, Schedule, capacity_at
+from .validation import validate
+
+
+def solve(instance: Instance, scenario: str, seconds=60, overrides=(), baseline: Schedule | None = None, callback: Callable | None = None):
+    if scenario not in ("A", "B", "C"):
+        raise ValueError("Scenario must be A, B or C.")
+    started = time.monotonic()
+    model = cp_model.CpModel()
+    aids = sorted(instance.activities)
+    # Auxiliary synchronized opportunities prove a physically realizable schedule.
+    # They do NOT change the scope of exported local accounting labels.
+    slots = range(max(7, max(instance.supply.values())))
+    weeks = range(1, instance.weeks + 1)
+    x, e, z, finish, assignments = {}, {}, {}, {}, defaultdict(list)
+    hints = {(r.activity_id, r.week): r for r in baseline.access} if baseline else {}
+    for aid in aids:
+        a = instance.activities[aid]
+        p = instance.projects[a.contract_number]
+        eligible = [w for w in weeks if w >= max(1, instance.week(a.planned_start_date)) and (scenario != "B" or instance.week_end(w) <= p.planned_completion_date)]
+        finish[aid] = model.new_int_var(1, instance.weeks, f"finish_{aid}")
+        for w in eligible:
+            x[aid, w] = model.new_bool_var(f"work_{aid}_{w}")
+            e[aid, w] = model.new_bool_var(f"eclo_{aid}_{w}")
+            model.add(e[aid, w] <= x[aid, w])
+            if scenario == "A":
+                model.add(e[aid, w] == 0)
+            for n in slots:
+                z[aid, w, n] = model.new_bool_var(f"place_{aid}_{w}_{n}")
+                assignments[w, n].append(aid)
+            model.add(sum(z[aid, w, n] for n in slots) == x[aid, w])
+            if baseline:
+                model.add_hint(x[aid, w], int((aid, w) in hints))
+                model.add_hint(e[aid, w], hints[aid, w].eclo if (aid, w) in hints else 0)
+                for n in slots:
+                    model.add_hint(z[aid, w, n], int(baseline.witness.get(f"{aid}:{w}") == n + 1))
+        model.add(sum(2 * x[aid, w] + e[aid, w] for w in eligible) >= 2 * a.total_accesses)
+        model.add(sum(2 * x[aid, w] + e[aid, w] for w in eligible) <= 2 * a.total_accesses + 1)
+        if eligible:
+            model.add_max_equality(finish[aid], [w * x[aid, w] for w in eligible])
+        else:
+            model.add_bool_or([])
+    for (aid, w), present in x.items():
+        pred = instance.activities[aid].predecessor_activity_id
+        if pred:
+            model.add(finish[pred] < w).only_enforce_if(present)
+
+    by_location = defaultdict(list)
+    for aid in aids:
+        for loc in instance.routes[aid]:
+            by_location[loc].append(aid)
+    excess_vars = []
+    for loc, occupants in by_location.items():
+        for w in weeks:
+            possible = [aid for aid in occupants if (aid, w) in x]
+            if not possible:
+                continue
+            used = []
+            for n in slots:
+                terms = [z[aid, w, n] for aid in possible]
+                busy = model.new_bool_var(f"used_{loc}_{w}_{n}")
+                model.add_max_equality(busy, terms)
+                used.append(busy)
+                model.add(sum(terms) <= 4)
+                pc = [z[aid, w, n] for aid in possible if instance.projects[instance.activities[aid].contract_number].access_type == "PC"]
+                model.add(sum(pc) <= 1)
+                for aid in possible:
+                    if instance.projects[instance.activities[aid].contract_number].access_type == "PM":
+                        model.add(sum(terms) <= 1).only_enforce_if(z[aid, w, n])
+            cap = capacity_at(instance, loc, w, overrides)
+            if scenario == "A":
+                model.add(sum(used) <= cap)
+            else:
+                over = model.new_int_var(0, len(slots), f"excess_{loc}_{w}")
+                model.add_max_equality(over, [0, sum(used) - cap])
+                excess_vars.append(over)
+                if scenario == "C":
+                    model.add(over <= 1)
+    for i, j in combinations(aids, 2):
+        pi = instance.projects[instance.activities[i].contract_number]
+        pj = instance.projects[instance.activities[j].contract_number]
+        sharing = bool(instance.routes[i] & instance.routes[j]) and "PM" not in (pi.access_type, pj.access_type) and (pi.access_type, pj.access_type) != ("PC", "PC")
+        if not sharing and instance.protected[i] & instance.protected[j]:
+            for w in weeks:
+                if (i, w) in x and (j, w) in x:
+                    for n in slots:
+                        model.add(z[i, w, n] + z[j, w, n] <= 1)
+    for cid, p in instance.projects.items():
+        members = [a for a in aids if instance.activities[a].contract_number == cid]
+        for w in weeks:
+            possible = [a for a in members if (a, w) in x]
+            if not possible:
+                continue
+            used = []
+            for n in slots:
+                terms = [z[a, w, n] for a in possible]
+                busy = model.new_bool_var(f"contract_{cid}_{w}_{n}")
+                model.add_max_equality(busy, terms)
+                model.add(sum(terms) <= p.number_of_workfronts)
+                used.append(busy)
+            model.add(sum(used) <= p.number_of_maximum_access_per_week)
+    if scenario == "C":
+        windows = {line: model.new_int_var(1, instance.weeks, f"window_{line}") for line in instance.lines}
+        for (aid, w), ec in e.items():
+            for line in instance.affected_lines[aid]:
+                model.add(windows[line] <= w).only_enforce_if(ec)
+                model.add(windows[line] >= w - 1).only_enforce_if(ec)
+
+    penalty = []
+    for aid in aids:
+        p = instance.projects[instance.activities[aid].contract_number]
+        late = model.new_int_var(0, max(0, (instance.week_end(instance.weeks) - p.planned_completion_date).days), f"late_{aid}")
+        model.add_max_equality(late, [0, 7 * finish[aid] - 1 - (p.planned_completion_date - instance.start).days])
+        if scenario != "B":
+            penalty.append(instance.weight10(aid) * late)
+    if scenario != "A":
+        penalty.extend([70 * v for v in excess_vars])
+        penalty.extend([50 * v for v in e.values()])
+    primary = sum(penalty)
+    secondary = sum((1 - v if k in hints else v) for k, v in x.items()) if baseline else sum(finish.values())
+    scale = len(x) + len(aids) * instance.weeks + 1
+    model.minimize(primary * scale + secondary)
+
+    def extract(engine):
+        rows, occ, witness = [], [], {}
+        active = defaultdict(list)
+        for (aid, w), present in x.items():
+            if engine.value(present):
+                n = next(n for n in slots if engine.value(z[aid, w, n]))
+                active[w].append((aid, n, engine.value(e[aid, w])))
+        counters = defaultdict(int)
+        for w, work in sorted(active.items()):
+            local = defaultdict(set)
+            for aid, n, _ in work:
+                a = instance.activities[aid]
+                local[a.contract_number, a.activity_type].add(n)
+            for aid, n, ec in sorted(work):
+                a = instance.activities[aid]
+                counters[aid] += 1
+                night = sorted(local[a.contract_number, a.activity_type]).index(n) + 1
+                rows.append(Access(activity_id=aid, access_seq=counters[aid], week=w, eclo=ec, access_night=night))
+                witness[f"{aid}:{w}"] = n + 1
+                for loc in sorted(instance.routes[aid]):
+                    occ.append(Occupancy(activity_id=aid, week=w, location_id=loc, co_share_group=f"p{n + 1}"))
+        results = []
+        for cid, p in instance.projects.items():
+            last = max(r.week for r in rows if instance.activities[r.activity_id].contract_number == cid)
+            completion = instance.week_end(last)
+            results.append(Completion(scenario=scenario, contract_number=cid, simulated_completion_date=completion, overrun_days=max(0, (completion - p.planned_completion_date).days)))
+        return Schedule(scenario=scenario, access=rows, occupancy=occ, results=results, witness=witness)
+
+    class Incumbents(cp_model.CpSolverSolutionCallback):
+        best = None
+        report = None
+        count = 0
+        def on_solution_callback(self):
+            candidate = extract(self)
+            checked = validate(instance, candidate, overrides)
+            if not checked["feasible"]:
+                self.stop_search()
+                raise RuntimeError("Solver/checker disagreement: " + str(checked["hard_violations"][:3]))
+            self.best, self.report = candidate, checked
+            self.count += 1
+            if callback:
+                callback(candidate, checked, {"elapsed_seconds": round(time.monotonic() - started, 2), "solutions": self.count})
+
+    engine = cp_model.CpSolver()
+    engine.parameters.max_time_in_seconds = max(0.1, seconds - (time.monotonic() - started))
+    engine.parameters.num_search_workers = 4
+    engine.parameters.random_seed = 42
+    collector = Incumbents()
+    status = engine.solve(model, collector)
+    status_name = engine.status_name(status)
+    result = {"solver_status": status_name, "elapsed_seconds": round(time.monotonic() - started, 2), "solutions": collector.count,
+              "model_bound": max(0, int(engine.best_objective_bound // scale) / 10) if status in (cp_model.FEASIBLE, cp_model.OPTIMAL) else None,
+              "schedule": collector.best.model_dump(mode="json") if collector.best else None,
+              "validation": collector.report,
+              "interpretation": "Local conservative temporal-witness model. Official validator unavailable."}
+    if status == cp_model.MODEL_INVALID:
+        result["error"] = engine.solution_info()
+    if not collector.best:
+        result["message"] = "No complete schedule found within the search budget. Increase the budget or inspect demand and capacity." if status == cp_model.UNKNOWN else "No schedule satisfies this local model and the selected policy. Review the constraints; no workload has been dropped."
+    return result

@@ -1,0 +1,23 @@
+[project]
+name = "nightshift-trackaccess"
+version = "0.1.0"
+description = "Evidence-led railway possession planning for NebulaX PS1"
+requires-python = ">=3.11"
+dependencies = ["ortools>=9.12,<10", "fastapi>=0.115,<1", "uvicorn[standard]>=0.34,<1", "python-multipart>=0.0.20", "pydantic>=2.10,<3", "httpx>=0.28,<1"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]
+
+[project.scripts]
+trackaccess = "trackaccess.__main__:main"
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["trackaccess*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
