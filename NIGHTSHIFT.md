@@ -61,7 +61,6 @@ All three reach proven optima in the implemented local model. A improves the ref
 ```sh
 uv run pytest -q
 npm run build
-npm run typecheck:worker
 ```
 
 Tests include public optima, 100 seeded known-feasible instances (different IDs, ordering, routes, priorities and possession types), malformed uploads, independent mutation checks, asynchronous jobs, exports, 30 deterministic conversation intents, model outage fallback, and the updated cross-contract FS+0 rule. Synthetic cases establish regression coverage, not a claim to match hidden-instance performance.
@@ -70,31 +69,10 @@ Tests include public optima, 100 seeded known-feasible instances (different IDs,
 
 The demo is live at [Nightshift on Google Cloud Run](https://nightshift-717753975344.us-central1.run.app). See [the deployment and operations guide](docs/CLOUD_RUN.md) for the temporary project, durable storage, verification results and manual shutdown commands. The container serves the UI and API together and accepts the hosting platform's `PORT` value.
 
-The local test suite now passes 168 tests. Cloud Storage owns hosted state; local development needs no Google Cloud credentials. The existing Cloudflare scaffold below is optional and unused by this deployment.
-
-## Optional Cloudflare scaffold
-
-The repository includes a Worker, a native Python Container, R2 checkpoint gateway and Wrangler configuration. Native OR-Tools runs in the Container. Workers Paid/Containers and an authenticated Cloudflare account are required.
-
-```sh
-npx wrangler login
-npx wrangler r2 bucket create nightshift-snapshots
-npm run deploy
-```
-
-For durable checkpoints, set `NIGHTSHIFT_SNAPSHOT_URL` in Wrangler `vars` to `https://YOUR-WORKER.workers.dev/internal/snapshots`, then create a strong `NIGHTSHIFT_INTERNAL_SECRET` through `npx wrangler secret put NIGHTSHIFT_INTERNAL_SECRET`. Set the same secret through that binding; it is passed to the Container automatically. The gateway refuses requests without it. Add Gemini through `npx wrangler secret put GEMINI_API_KEY` if wanted. Redeploy after changing vars.
-
-R2 mirroring is optional locally but required for hosted restart durability. Checkpoint failures are logged; the latest local incumbent remains usable. GET on a saved running job restarts it from its checked incumbent after a container restart. The UI restores known version IDs from browser storage; there is no cross-device account system.
-
-`standard-3` provides the initial container size; four solver threads and one concurrent solve per container are configured, with a four-job queue. The container sleeps after 15 minutes without requests. Costs are separate from the chat model's free tier. Use HTTPS and put Cloudflare Access in front of a private deployment if needed; this prototype uses unguessable run IDs rather than accounts.
-
-This scaffold is retained for reference and is not the current deployment plan. No Gemini key was configured during verification. Hosted model access and remote persistence require smoke tests when hosting is selected.
-
 ## Handoff
 
 - Python implementation: `trackaccess/`
 - React controller: `src/`
-- Cloudflare routing and persistence gateway: `cloudflare/worker.ts`
 - Local rules and source update: `docs/RULES.md`
 - Three-minute demonstration outline: `docs/DEMO.md`
 - CI: `.gitlab-ci.yml`

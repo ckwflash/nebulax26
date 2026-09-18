@@ -15,7 +15,6 @@ from trackaccess.store import Store
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("NIGHTSHIFT_DATA", str(tmp_path))
-    monkeypatch.delenv("NIGHTSHIFT_SNAPSHOT_URL", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("NIGHTSHIFT_CHAT_PROVIDER", raising=False)
     monkeypatch.delenv("VERTEX_PROJECT", raising=False)

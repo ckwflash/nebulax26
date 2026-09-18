@@ -12,6 +12,5 @@ frontend:
   script:
     - npm ci
     - npm run build
-    - npm run typecheck:worker
   artifacts:
     paths: [dist/]

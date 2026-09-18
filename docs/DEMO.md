@@ -14,4 +14,4 @@ For a live hidden-instance demonstration, Upload demand book accepts either eigh
 
 Secondary demonstration: Capacity board → a location/week → hard closure → preview → inspect changed activities. A closure does not quietly become purchasable extra supply in B/C.
 
-Before publishing: use actual measured results, test a fresh browser and the exported ZIP, verify model quota if model assistance is enabled, and confirm Cloudflare checkpointing survives a container restart. Recording and publishing the YouTube video and GitLab repository remain owner-account steps.
+Before publishing: use actual measured results, test a fresh browser and the exported ZIP, verify model quota if model assistance is enabled, and confirm Cloud Run checkpoint recovery survives a revision replacement. Recording and publishing the YouTube video and GitLab repository remain owner-account steps.

@@ -3,7 +3,6 @@ import copy
 import fcntl
 import hashlib
 import json
-import logging
 import os
 import re
 import threading
@@ -11,7 +10,6 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
-import httpx
 from google.api_core.exceptions import GoogleAPIError, NotFound, PreconditionFailed
 from google.cloud import storage
 from google.cloud.storage.retry import DEFAULT_RETRY
@@ -35,8 +33,6 @@ class Store:
     def __init__(self, *, bucket=None, clock=time.time):
         self.root = Path(os.getenv("NIGHTSHIFT_DATA", ".nightshift/store"))
         self.root.mkdir(parents=True, exist_ok=True)
-        self.remote = os.getenv("NIGHTSHIFT_SNAPSHOT_URL", "").rstrip("/")
-        self.secret = os.getenv("NIGHTSHIFT_INTERNAL_SECRET", "")
         name = os.getenv("NIGHTSHIFT_GCS_BUCKET", "")
         self.bucket = bucket if bucket is not None else (storage.Client().bucket(name) if name else None)
         self.clock = clock
@@ -67,19 +63,6 @@ class Store:
         if path.exists():
             content = path.read_bytes()
             return json.loads(content), hashlib.sha256(content).hexdigest()
-        if self.remote:
-            try:
-                response = httpx.get(f"{self.remote}/{key}", headers={"Authorization": f"Bearer {self.secret}"}, timeout=10)
-                if response.status_code == 200:
-                    value = response.json()
-                    self._write(key, value)
-                    return self._read(key)
-                response.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code != 404:
-                    raise StorageError("Checkpoint storage is unavailable.") from exc
-            except httpx.HTTPError as exc:
-                raise StorageError("Checkpoint storage is unavailable.") from exc
         return None, 0
 
     def _write(self, key, value, version=None):
@@ -106,12 +89,6 @@ class Store:
                 temp.replace(path)
             finally:
                 fcntl.flock(lockfile, fcntl.LOCK_UN)
-        if self.remote:
-            try:
-                response = httpx.put(f"{self.remote}/{key}", content=content, headers={"Authorization": f"Bearer {self.secret}", "Content-Type": "application/json"}, timeout=10)
-                response.raise_for_status()
-            except httpx.HTTPError:
-                logging.getLogger(__name__).warning("Optional checkpoint mirror failed")
         return hashlib.sha256(content.encode()).hexdigest()
 
     def put(self, key, value):

@@ -55,7 +55,6 @@ class FakeBlob:
 def storage(tmp_path, monkeypatch):
     monkeypatch.setenv('NIGHTSHIFT_DATA', str(tmp_path))
     monkeypatch.delenv('NIGHTSHIFT_GCS_BUCKET', raising=False)
-    monkeypatch.delenv('NIGHTSHIFT_SNAPSHOT_URL', raising=False)
     now = [1000.0]
     bucket = FakeBucket()
     store = Store(bucket=bucket, clock=lambda: now[0])
