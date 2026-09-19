@@ -1,0 +1,63 @@
+/* RailPlan design tokens — spec section 3.1 */
+:root {
+  --page: #f4f6f9;
+  --surface: #fff;
+  --border: #dfe3ea;
+  --text: #14213a;
+  --muted: #5b6578;
+  --navy-deep: #0f1f3d;
+  --navy: #14213a;
+  --blue: #1d5fd1;
+  --blue-dark: #174fb0;
+  --green: #1e8a5a;
+  --green-text: #176842;
+  --amber: #d9962b;
+  --amber-text: #8a5a0c;
+  --red: #c1352c;
+  --red-text: #a12a22;
+  --purple: #6b46c1;
+  --purple-text: #5b35a8;
+  --divider: #e6e9ef;
+  --row-line: #eceff4;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  background: var(--page);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+#root {
+  min-height: 100vh;
+}
+a {
+  color: var(--blue);
+}
+a:hover {
+  color: #123f9a;
+}
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+}
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
