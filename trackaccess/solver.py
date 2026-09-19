@@ -16,10 +16,26 @@ from .validation import validate
 # 70/excess and 50/ECLO rates so B buys its dates with supply before it slips them.
 DEADLINE_PRICE = 10_000
 
+# Recovery weights, each 0..10 with 5 meaning "as the official objective". They only steer
+# the search; the reported score is always the official formula from validate().
+#   churn      - moving an access week away from the baseline (needs a baseline)
+#   deadlines  - overrun days
+#   passengers - ECLO accesses and excess location-nights (both eat into service hours)
+#   priority1  - extra multiplier on overrun and churn of Priority-1 contracts
+WEIGHT_KEYS = ("churn", "deadlines", "passengers", "priority1")
+NEUTRAL = 5
+# Tenths of a penalty point for one moved access-week at the neutral weight: the same as
+# one day's overrun on a P3 / activity-priority-3 job, and half an ECLO (50).
+CHURN_PRICE = 10
 
-def solve(instance: Instance, scenario: str, seconds=90, overrides=(), baseline: Schedule | None = None, callback: Callable | None = None, cancel_event=None, relax_deadline=False):
+
+def solve(instance: Instance, scenario: str, seconds=90, overrides=(), baseline: Schedule | None = None, callback: Callable | None = None, cancel_event=None, relax_deadline=False, weights: dict | None = None):
     if scenario not in ("A", "B", "C"):
         raise ValueError("Scenario must be A, B or C.")
+    if weights is not None:
+        weights = {k: int(weights.get(k, NEUTRAL)) for k in WEIGHT_KEYS}
+        if any(not 0 <= v <= 10 for v in weights.values()):
+            raise ValueError("Weights must be between 0 and 10.")
     started = time.monotonic()
     # B is solved in two phases. Phase 1 keeps the deadline as a domain filter, which is
     # both fast and exactly the rule. Only when that proves INFEASIBLE does phase 2 reopen
@@ -133,6 +149,17 @@ def solve(instance: Instance, scenario: str, seconds=90, overrides=(), baseline:
                 model.add(windows[line] <= w).only_enforce_if(ec)
                 model.add(windows[line] >= w - 1).only_enforce_if(ec)
 
+    # Unweighted, every coefficient keeps its official value. Weighted, each term is
+    # multiplied by weight * NEUTRAL (priority-1 terms by weight * priority1), so an
+    # all-neutral vector reproduces the official objective scaled by NEUTRAL**2.
+    wt = weights or {}
+    unit = NEUTRAL * NEUTRAL if weights else 1
+
+    def p1(aid, base):
+        if not weights:
+            return base
+        return base * (wt["priority1"] if instance.projects[instance.activities[aid].contract_number].contract_priority == 1 else NEUTRAL)
+
     penalty = []
     for aid in aids:
         p = instance.projects[instance.activities[aid].contract_number]
@@ -141,12 +168,16 @@ def solve(instance: Instance, scenario: str, seconds=90, overrides=(), baseline:
         if scenario == "B":
             # Phase 1 cannot be late by construction. In phase 2 this must dominate every
             # other term so a date slips only when no ECLO/excess combination can hit it.
-            penalty.append(DEADLINE_PRICE * late)
+            penalty.append(DEADLINE_PRICE * unit * late)
         else:
-            penalty.append(instance.weight10(aid) * late)
+            penalty.append(p1(aid, instance.weight10(aid) * (wt["deadlines"] if weights else 1)) * late)
     if scenario != "A":
-        penalty.extend([70 * v for v in excess_vars])
-        penalty.extend([50 * v for v in e.values()])
+        pax = wt["passengers"] * NEUTRAL if weights else 1
+        penalty.extend([70 * pax * v for v in excess_vars])
+        penalty.extend([50 * pax * v for v in e.values()])
+    if weights and baseline and wt["churn"]:
+        # Each access-week that differs from the baseline, in either direction.
+        penalty.extend(p1(aid, CHURN_PRICE * wt["churn"]) * (1 - v if (aid, w) in hints else v) for (aid, w), v in x.items())
     primary = sum(penalty)
     secondary = sum((1 - v if k in hints else v) for k, v in x.items()) if baseline else sum(finish.values())
     scale = len(x) + len(aids) * instance.weeks + 1
@@ -225,7 +256,8 @@ def solve(instance: Instance, scenario: str, seconds=90, overrides=(), baseline:
             watcher.join(timeout=1)
     status_name = engine.status_name(status)
     result = {"instance_id": instance.id, "solver_status": status_name, "elapsed_seconds": round(time.monotonic() - started, 2), "solutions": collector.count,
-              "model_bound": max(0, int(engine.best_objective_bound // scale) / 10) if status in (cp_model.FEASIBLE, cp_model.OPTIMAL) else None,
+              # A weighted objective is not in score units, so its bound says nothing about the score.
+              "model_bound": max(0, int(engine.best_objective_bound // scale) / 10) if status in (cp_model.FEASIBLE, cp_model.OPTIMAL) and not weights else None,
               "schedule": collector.best.model_dump(mode="json") if collector.best else None,
               "validation": collector.report,
               "interpretation": "Local conservative temporal-witness model. Official validator unavailable."}
@@ -245,7 +277,7 @@ def solve(instance: Instance, scenario: str, seconds=90, overrides=(), baseline:
         # No zero-overrun schedule exists. Reopen the horizon and price the slip rather
         # than reporting an impossible case, spending whatever budget phase 1 left.
         remaining = max(1.0, seconds - (time.monotonic() - started))
-        fallback = solve(instance, scenario, remaining, overrides, baseline, callback, cancel_event=cancel_event, relax_deadline=True)
+        fallback = solve(instance, scenario, remaining, overrides, baseline, callback, cancel_event=cancel_event, relax_deadline=True, weights=weights)
         fallback["elapsed_seconds"] = round(time.monotonic() - started, 2)
         fallback["deadline_relaxed"] = True
         return fallback

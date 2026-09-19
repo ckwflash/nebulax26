@@ -199,3 +199,53 @@ def test_document_pack(client):
     assert 'C006' in pack and 'A036' in pack
     assert client.post('/api/reports/nope/generate',json=dict(run_id=run['id'])).status_code==404
     assert client.post('/api/reports/management-summary/generate',json=dict(run_id='missing')).status_code==404
+
+
+def test_recovery_philosophies(client):
+    demo=client.get('/api/demo').json()
+    closure=[dict(location_id='SEC:BET:H01_H02:EB',week=w,capacity=0,closed=True) for w in (10,11,12)]
+    body=dict(instance_id=demo['instance']['id'],scenario='A',baseline_id=demo['run']['id'],overrides=closure,
+              weights=dict(churn=8,deadlines=4,passengers=5,priority1=9),seconds=20)
+    started=client.post('/api/disruptions/recoveries',json=body)
+    assert started.status_code==202
+    assert [r['philosophy'] for r in started.json()['runs']]==['churn','deadlines','passengers','p1','custom']
+    deadline=time.monotonic()+300
+    while (batch:=client.get(f"/api/disruptions/recoveries/{started.json()['id']}").json())['status']!='completed':
+        assert time.monotonic()<deadline
+        time.sleep(.5)
+    for result in batch['results']:
+        run=result['run']
+        assert run['schedule'], (result['philosophy'], run['status'], run.get('solver_status'), run.get('message'), run.get('error'))
+        assert run['schedule'] and run['validation'] and run['model_bound'] is None
+        assert 'diff' in run
+    custom=next(r['run'] for r in batch['results'] if r['philosophy']=='custom')
+    assert custom['weights']==dict(churn=8,deadlines=4,passengers=5,priority1=9)
+    bad=dict(body,weights=dict(churn=11))
+    assert client.post('/api/disruptions/recoveries',json=bad).status_code==422
+    assert client.get('/api/disruptions/recoveries/nope').status_code==404
+
+
+def test_contractor_request_assessment(client):
+    demo=client.get('/api/demo').json()
+    instance=demo['instance'];run=demo['run']
+    # H01-H02 EB on Beta is at capacity in weeks 4-23, so a request there must displace work.
+    body=dict(instance_id=instance['id'],contract_number='C006',contractor='Ballastco',location_id='SEC:BET:H01_H02:EB',week_from=15,week_to=15,reason='Programme acceleration')
+    made=client.post('/api/requests',json=body)
+    assert made.status_code==201
+    rid=made.json()['id']
+    assert [r['id'] for r in client.get('/api/requests',params=dict(instance_id=instance['id'])).json()]==[rid]
+    assert client.get(f'/api/requests/{rid}/assessment').status_code==404
+    started=client.post(f'/api/requests/{rid}/assess',json=dict(baseline_id=run['id'],seconds=20))
+    assert started.status_code==202 and 1<=len(started.json()['runs'])<=3
+    deadline=time.monotonic()+300
+    while (a:=client.get(f'/api/requests/{rid}/assessment').json())['status']!='completed':
+        assert time.monotonic()<deadline
+        time.sleep(.5)
+    assert a['capacity_before']==100 and a['capacity_after']==200
+    assert a['options'][0]['kind']=='REQUESTED' and all(o['kind']=='ALTERNATIVE' for o in a['options'][1:])
+    assert all(o['week_from']!=15 for o in a['options'][1:])
+    assert a['options'][0]['impact'] in ('LOW','MEDIUM','HIGH')
+    assert a['draft_response'].startswith('Dear Ballastco')
+    assert client.patch(f'/api/requests/{rid}',json=dict(status='countered')).json()['status']=='countered'
+    assert client.post('/api/requests',json=dict(body,week_to=99)).status_code==422
+    assert client.post('/api/requests',json=dict(body,contract_number='NOPE')).status_code==422

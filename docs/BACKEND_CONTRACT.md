@@ -14,9 +14,7 @@ card and nothing else. That is deliberate.
 ## 0. What you actually need to do
 
 1. ~~Fix the Windows import blocker (§3).~~ Done.
-2. **Build two endpoint groups** (§4): contractor requests and disruption recoveries.
-   Reports (§4.2) is done. The UI already has the tabs; they show "awaiting backend" panels naming
-   these endpoints.
+2. ~~Build the three endpoint groups (§4).~~ Done: requests, reports and recoveries, all wired into their tabs.
 3. **Optional, 5 minutes:** add a `contractor` column (§5).
 
 Everything else already works.
@@ -240,50 +238,40 @@ Unrelated but worth knowing: a fresh `.venv` was missing `google-auth` and
 
 ---
 
-## 4. Endpoints to build
+## 4. Endpoints added for the Requests, Reports and Disruption tabs
 
 Conventions for all three: JSON in and out, `{"detail": "..."}` on error, no auth (the app
 is single-tenant today).
 
-### 4.1 Contractor requests — Requests tab
+### 4.1 Contractor requests — Requests tab ✅ built
 
-A request is a contractor asking for access the plan did not give them. It is economically
-a capacity override, so its assessment is the same what-if the Scenarios tab already runs.
+Implemented in `trackaccess/access_requests.py` (pricing logic) and `api.py` (routes);
+test `test_contractor_request_assessment`.
+
+**Model.** Granting a contractor an extra possession at location L in weeks [from, to]
+takes one unit of L's capacity from everyone else. So an assessment is a what-if with
+L's capacity reduced by 1 in those weeks, warm-started from the approved run. The two
+nearest same-length windows where L still has room in every week are solved the same
+way as counter-offers. Assessment is **asynchronous** (open question 2): it queues up to
+three runs and is polled like a run.
 
 ```
-GET /api/requests
--> [ { "id": "REQ-001",
-       "contract_number": "C006",
-       "contractor": "Ballastco",
-       "request": "Additional access night",
-       "location_id": "SEC:ALP:S01_S02:EB",   // optional but strongly preferred
-       "week_from": 15, "week_to": 15,
-       "reason": "Programme acceleration",
-       "status": "pending" | "accepted" | "rejected" | "countered",
-       "received_at": "2026-09-18T09:40:00Z" } ]
-
-GET /api/requests/{id}/assessment
--> { "location_id": "SEC:ALP:S01_S02:EB",
-     "capacity_before": 92, "capacity_after": 108,      // percentages
-     "tiles": [ { "label": "Activities displaced", "value": "3",
-                  "tone": "crit"|"warn"|"ok", "note": "A005 and two C013 pre-works" } ],
-     "displaced": [ { "activity_id": "A005", "contract_number": "C002",
-                      "priority": 2, "effect": "C002 +3 days", "tone": "crit" } ],
-     "options": [ { "kind": "REQUESTED"|"ALTERNATIVE",
-                    "week_from": 15, "week_to": 15,
-                    "impact": "HIGH"|"MEDIUM"|"LOW"|"NONE"|"BENEFICIAL",
-                    "score_before": 47.3, "score_after": 61.2,
-                    "points": [ { "tone": "ok"|"warn"|"bad", "text": "3 activities displaced" } ] } ],
-     "draft_response": "Week 15 cannot be accommodated without..." }
+POST  /api/requests          { instance_id, contract_number, contractor, request,
+                               location_id, week_from, week_to, reason }   -> 201 request
+GET   /api/requests?instance_id=<16 hex>                                   -> [request]
+PATCH /api/requests/{id}     { "status": "pending"|"accepted"|"rejected"|"countered" }
+POST  /api/requests/{id}/assess   { baseline_id, seconds }  -> 202 { id, runs[] }
+GET   /api/requests/{id}/assessment
+  -> { "status": "running", "done": 1, "total": 3 }
+  -> { "status": "completed", location_id, capacity_before, capacity_after,   // worst-week %
+       tiles[], displaced[], options[], draft_response }                   // shapes as sketched originally
 ```
 
-Implementation note: `options` is three solves (as requested, and the two nearest weeks
-with room). At 90 s each that is too slow for a page load — either cache per request, run
-them shorter, or return the assessment asynchronously like a run. **Tell me which** and I
-will match the UI's loading behaviour.
-
-Storage: requests need to persist somewhere. `store.py` already does versioned JSON blobs;
-`requests/{id}` alongside `runs/{id}` would be the obvious home.
+`impact` per option comes from the official score delta and the number of moved
+activities: BENEFICIAL (score improves), NONE (nothing moves), LOW (< 5 points), MEDIUM
+(< 20), HIGH (≥ 20, infeasible, or no schedule). Requests persist as `requests/{id}`, plus a
+per-book index `requests/index-{instance_id}`. Recording a decision does not change the
+approved plan.
 
 ### 4.2 Reports — Reports tab ✅ built
 
@@ -309,56 +297,48 @@ renders and the download renders it again. An infeasible run still renders, with
 "must not be issued" banner. The Risk report deliberately does not compute fragility
 (§6); it reports capacity pressure and no-slack contracts from `validation`.
 
-### 4.3 Disruption recoveries — the one that needs a design decision
+### 4.3 Disruption recoveries ✅ built — weighted objective, option (b)
 
-The Disruption tab currently does something real: it turns the disruption into overrides,
-re-solves warm-started from the approved plan, and diffs the result. That single answer is
-effectively the **minimum-churn** recovery, because the warm start biases the solver toward
-keeping placements.
+`solve()` takes optional `weights = {churn, deadlines, passengers, priority1}`, 0–10 each,
+where 5 reproduces the official objective. They scale the existing penalty terms:
+overrun (`weight10 * late`) by `deadlines`; ECLO (`50 * e`) and excess (`70 * over`) by
+`passengers`; a moved access-week relative to the baseline (`CHURN_PRICE`) by `churn`; and
+Priority-1 overrun and churn additionally by `priority1`. **Weights steer the search only.**
+Every result is scored by `validate()` with the official formula, so options compare like
+for like. `model_bound` is `null` on weighted runs because the bound is not in score units.
 
-The spec asks for **five** recoveries that differ in what they protect:
-
-| Philosophy | Protects | Pays with |
-|---|---|---|
-| Minimum churn | booked dates | one contract slips |
-| Protect deadlines | every completion date | extra ECLO / excess nights |
-| Protect passengers | service hours (fewest ECLO) | more activities move |
-| Protect P1 | Priority-1 programmes | cost lands on P3 |
-| Custom | whatever the user weights | nothing fully protected |
-
-`solve()` takes a scenario, not weights, so this cannot be expressed today. Two ways:
-
-**(a) Preset override-sets — cheap, approximate.** Each philosophy becomes a different
-override bundle (e.g. "protect P1" also freezes P1 activities' locations). No solver
-change, but the labels overstate what is actually being optimised.
-
-**(b) A weighted objective — honest, more work.** Add optional weights to `solve()` that
-scale the existing penalty terms: churn (the baseline-preservation tiebreaker, already
-present as `secondary`), overrun (`weight10 * late`), ECLO (`50 * e`), excess (`70 * over`),
-plus a P1 lock. The five philosophies are then five weight vectors, and the Custom sliders
-map directly onto them.
-
-I recommend (b) — the machinery is already in `solver.py`'s objective, it is mostly
-plumbing weights through. Whichever you pick:
+| Philosophy | churn | deadlines | passengers | priority1 |
+|---|---|---|---|---|
+| churn | 10 | 2 | 3 | 5 |
+| deadlines | 1 | 10 | 2 | 6 |
+| passengers | 2 | 3 | 10 | 5 |
+| p1 | 3 | 3 | 3 | 10 |
+| custom | caller's weights | | | |
 
 ```
 POST /api/disruptions/recoveries
-{ "instance_id": "...", "scenario": "A", "baseline_id": "<approved run>",
-  "overrides": [...],                                  // the disruption itself
-  "weights": { "churn": 6, "deadlines": 7, "passengers": 5, "priority1": 8 },
-  "philosophies": ["churn","deadlines","passengers","p1","custom"],
-  "seconds": 90 }
+{ instance_id, scenario, baseline_id, overrides[1..100], weights, philosophies[], seconds (default 30) }
 -> 202 { "id": "<batch id>", "runs": [ { "philosophy": "churn", "run_id": "..." } ] }
 
 GET /api/disruptions/recoveries/{batch id}
--> { "status": "running"|"completed",
-     "results": [ { "philosophy": "churn", "run": <full run object> } ] }
+-> { "status": "running"|"completed", "results": [ { "philosophy", "run": <full run> } ] }
 ```
 
-Returning **full run objects** matters: the frontend already knows how to derive a whole
-plan from one (`buildPlan`), so it can diff each philosophy against the approved plan
-without any new logic. Five 90-second solves is 7½ minutes serially — the pool is
-`max_workers=1`, so either widen it, shorten the budget, or stream results as they land.
+The pool is still `max_workers=1`, so the runs solve serially. A batch may queue up to 8
+active runs (single runs are still capped at 4). Measured on the public book, Scenario C
+with BET H01–H02 EB closed for weeks 10–12, 30 s each (all OPTIMAL, 54 s for five):
+
+| | score | moved | overrun days | ECLO |
+|---|---|---|---|---|
+| approved plan | 25.2 | — | 21 | 0 |
+| churn | 35.2 | 3 | 21 | 2 |
+| deadlines | 29.1 | 6 | 7 | 4 |
+| passengers | 25.2 | 4 | 21 | 0 |
+| custom (6/7/5/8) | 26.1 | 5 | 14 | 2 |
+
+In Scenario A (no ECLO, no excess) the philosophies often coincide; the UI says so.
+The Disruption tab can **adopt** a feasible recovery. This is frontend-only: the run becomes
+the displayed plan and is remembered across reloads.
 
 ---
 
@@ -413,9 +393,9 @@ Failure looks like a red "The plan could not be loaded" card, which names the re
 
 ---
 
-## 8. Open questions for me
+## 8. Open questions — resolved
 
-1. Should the export button be disabled when `feasible` is false, rather than 409-ing?
-2. Request assessments: synchronous (cached) or polled like runs?
-3. Recoveries: preset overrides (a) or weighted objective (b)?
-4. Should `/api/chat`'s `preview` drive a scenario preview in the Ask tab?
+1. Export on an infeasible run: the Reports tab disables the button and says why.
+2. Request assessments: asynchronous, polled like runs (§4.1).
+3. Recoveries: weighted objective, option (b) (§4.3).
+4. `/api/chat`'s `preview` driving a scenario preview in the Ask tab: still open.

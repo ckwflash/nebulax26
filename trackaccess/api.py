@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import threading
 import time
 import zipfile
@@ -120,6 +121,15 @@ def get_instance(instance_id: str):
     return instance_for(instance_id).summary()
 
 
+class Weights(BaseModel):
+    """Recovery priorities, 0..10 each; 5 is the official objective. See solver.WEIGHT_KEYS."""
+    model_config = ConfigDict(extra="forbid")
+    churn: int = Field(default=5, ge=0, le=10)
+    deadlines: int = Field(default=5, ge=0, le=10)
+    passengers: int = Field(default=5, ge=0, le=10)
+    priority1: int = Field(default=5, ge=0, le=10)
+
+
 class RunRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     instance_id: str = Field(pattern=r"^[a-f0-9]{16}$")
@@ -128,6 +138,7 @@ class RunRequest(BaseModel):
     baseline_id: str | None = None
     overrides: list[Override] = Field(default_factory=list, max_length=100)
     label: str = Field(default="", max_length=100)
+    weights: Weights | None = None
 
 
 def now():
@@ -196,7 +207,7 @@ def execute_run(run_id):
                 except (StorageError, LeaseLost):
                     cancelled.set()
 
-        result = solve(instance, run["scenario"], run["seconds"], overrides, baseline, progress, cancel_event=cancelled)
+        result = solve(instance, run["scenario"], run["seconds"], overrides, baseline, progress, cancel_event=cancelled, weights=run.get("weights"))
         if cancelled.is_set():
             raise LeaseLost("Run ownership or storage became unavailable")
         if not result["schedule"] and run.get("schedule"):
@@ -230,8 +241,29 @@ def execute_run(run_id):
             active_jobs.discard(run_id)
 
 
+MAX_ACTIVE = 4
+# A recovery batch is one user action, so it may briefly queue past the single-run limit.
+MAX_ACTIVE_WITH_BATCH = 8
+
+
 @app.post("/api/runs", status_code=202)
 def start_run(request: RunRequest):
+    return queue_runs([request], MAX_ACTIVE)[0]
+
+
+def queue_runs(requests: list[RunRequest], limit: int):
+    prepared = [prepare_run(r) for r in requests]
+    with job_lock:
+        if len(active_jobs) + len(prepared) > limit:
+            raise HTTPException(429, f"{len(active_jobs)} runs are already queued. Wait for one to finish.")
+        for run in prepared:
+            store.put(f"runs/{run['id']}", run)
+            active_jobs.add(run["id"])
+            pool.submit(execute_run, run["id"])
+    return prepared
+
+
+def prepare_run(request: RunRequest):
     instance = instance_for(request.instance_id)
     overrides = request.overrides
     if request.baseline_id:
@@ -245,15 +277,55 @@ def start_run(request: RunRequest):
     for override in overrides:
         if override.location_id not in instance.supply or override.week > instance.weeks:
             raise HTTPException(422, "Capacity change references an unknown location or week.")
-    with job_lock:
-        if len(active_jobs) >= 4:
-            raise HTTPException(429, "Four runs are already queued. Wait for one to finish.")
-        run_id = uuid4().hex
-        run = {**request.model_dump(), "overrides": [o.model_dump() for o in overrides], "id": run_id, "status": "queued", "created_at": now(), "label": request.label or f"Scenario {request.scenario}", "schedule": None, "validation": None}
-        store.put(f"runs/{run_id}", run)
-        active_jobs.add(run_id)
-        pool.submit(execute_run, run_id)
-    return run
+    return {**request.model_dump(), "overrides": [o.model_dump() for o in overrides], "id": uuid4().hex, "status": "queued", "created_at": now(), "label": request.label or f"Scenario {request.scenario}", "schedule": None, "validation": None}
+
+
+# Five recovery philosophies as weight vectors (see solver.WEIGHT_KEYS). "custom" takes the
+# caller's weights. They steer the search only; every result is scored by the official formula.
+PHILOSOPHIES = {
+    "churn": {"churn": 10, "deadlines": 2, "passengers": 3, "priority1": 5},
+    "deadlines": {"churn": 1, "deadlines": 10, "passengers": 2, "priority1": 6},
+    "passengers": {"churn": 2, "deadlines": 3, "passengers": 10, "priority1": 5},
+    "p1": {"churn": 3, "deadlines": 3, "passengers": 3, "priority1": 10},
+}
+
+
+class RecoveryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    instance_id: str = Field(pattern=r"^[a-f0-9]{16}$")
+    scenario: Scenario
+    baseline_id: str
+    overrides: list[Override] = Field(min_length=1, max_length=100)
+    weights: Weights = Field(default_factory=Weights)
+    philosophies: list[Literal["churn", "deadlines", "passengers", "p1", "custom"]] = Field(
+        default_factory=lambda: ["churn", "deadlines", "passengers", "p1", "custom"], min_length=1, max_length=5)
+    seconds: int = Field(default=30, ge=1, le=300)
+
+
+@app.post("/api/disruptions/recoveries", status_code=202)
+def start_recoveries(request: RecoveryRequest):
+    names = list(dict.fromkeys(request.philosophies))
+    runs = queue_runs([RunRequest(
+        instance_id=request.instance_id, scenario=request.scenario, seconds=request.seconds,
+        baseline_id=request.baseline_id, overrides=request.overrides, label=f"Recovery · {name}",
+        weights=request.weights if name == "custom" else Weights(**PHILOSOPHIES[name]),
+    ) for name in names], MAX_ACTIVE_WITH_BATCH)
+    batch = {"id": uuid4().hex, "created_at": now(), "runs": [{"philosophy": n, "run_id": r["id"]} for n, r in zip(names, runs)]}
+    store.put(f"recoveries/{batch['id']}", batch)
+    return {"id": batch["id"], "runs": batch["runs"]}
+
+
+@app.get("/api/disruptions/recoveries/{batch_id}")
+def get_recoveries(batch_id: str):
+    try:
+        batch = store.get(f"recoveries/{batch_id}")
+    except ValueError:
+        batch = None
+    if not batch:
+        raise HTTPException(404, "Recovery batch not found.")
+    results = [{"philosophy": r["philosophy"], "run": get_run(r["run_id"])} for r in batch["runs"]]
+    done = all(r["run"]["status"] not in ("queued", "running") for r in results)
+    return {"id": batch_id, "status": "completed" if done else "running", "results": results}
 
 
 @app.get("/api/runs/{run_id}")
@@ -312,6 +384,144 @@ def generate_report(report_id: str, request: ReportRequest):
 @app.get("/api/reports/{report_id}/download")
 def download_report(report_id: str, run: str):
     return HTMLResponse(render_report(report_id, *report_inputs(report_id, run)))
+
+
+def request_for(request_id):
+    try:
+        saved = store.get(f"requests/{request_id}")
+    except ValueError:
+        saved = None
+    if not saved:
+        raise HTTPException(404, "Request not found.")
+    return saved
+
+
+def request_index(instance_id):
+    return store.get(f"requests/index-{instance_id}") or []
+
+
+class AccessRequestIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    instance_id: str = Field(pattern=r"^[a-f0-9]{16}$")
+    contract_number: str = Field(min_length=1, max_length=40)
+    contractor: str = Field(default="", max_length=120)
+    request: str = Field(default="Additional access night", min_length=1, max_length=200)
+    location_id: str = Field(min_length=1, max_length=80)
+    week_from: int = Field(ge=1)
+    week_to: int = Field(ge=1)
+    reason: str = Field(default="", max_length=500)
+
+
+@app.post("/api/requests", status_code=201)
+def create_request(body: AccessRequestIn):
+    instance = instance_for(body.instance_id)
+    if body.contract_number not in instance.projects:
+        raise HTTPException(422, f"{body.contract_number} is not a contract in this demand book.")
+    if body.location_id not in instance.supply:
+        raise HTTPException(422, "Unknown location.")
+    if not body.week_from <= body.week_to <= instance.weeks:
+        raise HTTPException(422, f"Weeks must run forwards and end by week {instance.weeks}.")
+    ids = request_index(instance.id)
+    saved = {**body.model_dump(), "id": f"REQ-{len(ids) + 1:03d}-{uuid4().hex[:6]}", "status": "pending",
+             "received_at": now(), "assessment": None}
+    store.put(f"requests/{saved['id']}", saved)
+    store.put(f"requests/index-{instance.id}", ids + [saved["id"]])
+    return saved
+
+
+@app.get("/api/requests")
+def list_requests(instance_id: str):
+    if not re.fullmatch(r"[a-f0-9]{16}", instance_id):
+        raise HTTPException(422, "Invalid demand-book identifier.")
+    found = []
+    for rid in request_index(instance_id):
+        try:
+            found.append(request_for(rid))
+        except HTTPException:
+            continue
+    return found
+
+
+class RequestStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["pending", "accepted", "rejected", "countered"]
+
+
+@app.patch("/api/requests/{request_id}")
+def update_request(request_id: str, body: RequestStatus):
+    saved = request_for(request_id)
+    saved["status"] = body.status
+    store.put(f"requests/{request_id}", saved)
+    return saved
+
+
+class AssessRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    baseline_id: str
+    seconds: int = Field(default=30, ge=1, le=300)
+
+
+@app.post("/api/requests/{request_id}/assess", status_code=202)
+def assess_request(request_id: str, body: AssessRequest):
+    from .access_requests import alternatives, request_overrides
+    saved = request_for(request_id)
+    instance = instance_for(saved["instance_id"])
+    baseline = run_for(body.baseline_id)
+    if baseline["instance_id"] != instance.id or not baseline.get("schedule") or not baseline.get("validation"):
+        raise HTTPException(422, "Assess against a completed schedule for this demand book.")
+    existing = [Override(**o) for o in baseline.get("overrides", [])]
+    span = saved["week_to"] - saved["week_from"]
+    windows = [("REQUESTED", saved["week_from"])] + [("ALTERNATIVE", s) for s in alternatives(instance, baseline, saved["location_id"], saved["week_from"], saved["week_to"])]
+    runs = queue_runs([RunRequest(
+        instance_id=instance.id, scenario=baseline["scenario"], seconds=body.seconds, baseline_id=baseline["id"],
+        overrides=[Override(**o) for o in request_overrides(instance, saved["location_id"], start, start + span, existing)],
+        label=f"{saved['id']} · {kind.lower()} W{start}",
+    ) for kind, start in windows], MAX_ACTIVE_WITH_BATCH)
+    saved["assessment"] = {"baseline_id": baseline["id"], "created_at": now(), "options": [
+        {"kind": kind, "week_from": start, "week_to": start + span, "run_id": run["id"]} for (kind, start), run in zip(windows, runs)]}
+    store.put(f"requests/{request_id}", saved)
+    return {"id": request_id, "runs": [o["run_id"] for o in saved["assessment"]["options"]]}
+
+
+@app.get("/api/requests/{request_id}/assessment")
+def get_assessment(request_id: str):
+    from .access_requests import TONE, displaced, draft_response, impact, option_points, utilisation
+    saved = request_for(request_id)
+    plan = saved.get("assessment")
+    if not plan:
+        raise HTTPException(404, "This request has not been assessed yet.")
+    instance = instance_for(saved["instance_id"])
+    baseline = run_for(plan["baseline_id"])
+    runs = [get_run(o["run_id"]) for o in plan["options"]]
+    if any(r["status"] in ("queued", "running") for r in runs):
+        return {"status": "running", "done": sum(r["status"] not in ("queued", "running") for r in runs), "total": len(runs)}
+    options = []
+    for o, run in zip(plan["options"], runs):
+        v = run.get("validation") or {}
+        options.append({"kind": o["kind"], "week_from": o["week_from"], "week_to": o["week_to"], "run_id": run["id"],
+                        "impact": impact(baseline, run), "score_before": baseline["validation"]["score"],
+                        "score_after": v.get("score"), "points": option_points(baseline, run)})
+    requested, runs_requested = options[0], runs[0]
+    alts = sorted(options[1:], key=lambda o: ["BENEFICIAL", "NONE", "LOW", "MEDIUM", "HIGH"].index(o["impact"]))
+    moved = displaced(instance, baseline, runs_requested)
+    slipped = [d for d in moved if d["tone"] == "crit"]
+    return {
+        "status": "completed",
+        "location_id": saved["location_id"],
+        "capacity_before": utilisation(baseline, instance, saved["location_id"], saved["week_from"], saved["week_to"]),
+        "capacity_after": utilisation(baseline, instance, saved["location_id"], saved["week_from"], saved["week_to"], extra=1),
+        "tiles": [
+            {"label": "Activities displaced", "value": str(len(moved)), "tone": "crit" if slipped else "warn" if moved else "ok",
+             "note": ", ".join(d["activity_id"] for d in moved[:4]) + (" …" if len(moved) > 4 else "") or "none"},
+            {"label": "Contracts that slip", "value": str(len({d["contract_number"] for d in slipped})), "tone": "crit" if slipped else "ok",
+             "note": ", ".join(sorted({d["contract_number"] for d in slipped})) or "none"},
+            {"label": "Score change", "value": f"{requested['score_before']} → {requested['score_after'] if requested['score_after'] is not None else '—'}",
+             "tone": TONE[requested["impact"]], "note": f"{requested['impact'].lower()} impact"},
+        ],
+        "displaced": moved,
+        "options": [requested] + alts,
+        "draft_response": draft_response(saved, requested, next((a for a in alts if a["impact"] in ("NONE", "BENEFICIAL", "LOW")), None), len(moved), sorted({d["contract_number"] for d in slipped})),
+    }
 
 
 class ChatRequest(BaseModel):

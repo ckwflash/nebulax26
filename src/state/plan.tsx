@@ -31,6 +31,8 @@ interface PlanState {
   isSample: boolean;
   /** Drop an uploaded book and go back to the sample. */
   backToSample: () => void;
+  /** Make a solved run of the current book (e.g. a recovery) the displayed plan. */
+  adoptRun: (run: Run) => void;
   /** Solve a what-if on a copy of the plan. Does not replace the displayed plan. */
   runWhatIf: (input: {
     scenario?: ScenarioId;
@@ -201,6 +203,16 @@ export function PlanProvider({
     [],
   );
 
+  const adoptRun = useCallback(
+    (next: Run) => {
+      if (!instance || next.instance_id !== instance.id || !next.schedule || !next.validation) return;
+      setRun(next);
+      setError(null);
+      remember(instance.id, next.id);
+    },
+    [instance],
+  );
+
   const backToSample = useCallback(() => {
     forget();
     load();
@@ -237,6 +249,7 @@ export function PlanProvider({
     loadDemandBook,
     isSample: !instance || instance.id === sampleId,
     backToSample,
+    adoptRun,
     runWhatIf,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

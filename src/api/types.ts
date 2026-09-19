@@ -201,6 +201,24 @@ export interface Run {
   message?: string;
   error?: string;
   diff?: RunDiff;
+  /** Set on recovery runs: what the search was steered by. The score is still official. */
+  weights?: RecoveryWeights | null;
+}
+
+/** 0..10 each; 5 reproduces the official objective. */
+export interface RecoveryWeights {
+  churn: number;
+  deadlines: number;
+  passengers: number;
+  priority1: number;
+}
+
+export type Philosophy = "churn" | "deadlines" | "passengers" | "p1" | "custom";
+
+export interface RecoveryBatch {
+  id: string;
+  status: "running" | "completed";
+  results: { philosophy: Philosophy; run: Run }[];
 }
 
 export interface DemoPayload {
@@ -252,3 +270,47 @@ export interface ReportGenerated {
   download_url: string;
   generated_at: string;
 }
+
+export type RequestStatus = "pending" | "accepted" | "rejected" | "countered";
+
+/** POST/GET /api/requests — a contractor asking for access the plan did not give them. */
+export interface AccessRequest {
+  id: string;
+  instance_id: string;
+  contract_number: string;
+  contractor: string;
+  request: string;
+  location_id: string;
+  week_from: number;
+  week_to: number;
+  reason: string;
+  status: RequestStatus;
+  received_at: string;
+  assessment: { baseline_id: string; created_at: string } | null;
+}
+
+export type Tone = "ok" | "warn" | "crit";
+
+export interface RequestOption {
+  kind: "REQUESTED" | "ALTERNATIVE";
+  week_from: number;
+  week_to: number;
+  run_id: string;
+  impact: "HIGH" | "MEDIUM" | "LOW" | "NONE" | "BENEFICIAL";
+  score_before: number;
+  score_after: number | null;
+  points: { tone: "ok" | "warn" | "bad"; text: string }[];
+}
+
+export type RequestAssessment =
+  | { status: "running"; done: number; total: number }
+  | {
+      status: "completed";
+      location_id: string;
+      capacity_before: number;
+      capacity_after: number;
+      tiles: { label: string; value: string; tone: Tone; note: string }[];
+      displaced: { activity_id: string; contract_number: string; priority: number; effect: string; tone: Tone }[];
+      options: RequestOption[];
+      draft_response: string;
+    };

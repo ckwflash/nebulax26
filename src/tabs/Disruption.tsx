@@ -1,25 +1,37 @@
-// Spec section 11 — Disruption Response. Steps 1, 2 and 4 run against the real plan:
-// the disruption becomes capacity overrides and the recovery is an actual re-solve.
-// The five weighted philosophies need a weighted objective in the solver, so they are
-// listed as pending rather than faked.
+// Spec section 11 — Disruption Response. The disruption becomes capacity overrides; each
+// recovery philosophy is a real re-solve warm-started from the approved plan, steered by
+// its own weights (POST /api/disruptions/recoveries). Every result is scored with the
+// official formula, so the options compare on the same scale.
 
-import { useState } from "react";
-import type { Run } from "../api/types";
+import { useEffect, useRef, useState } from "react";
+import { api } from "../api/client";
+import type { Override, Philosophy, RecoveryWeights, Run } from "../api/types";
 import { buildPlan, type PlanModel } from "../data/adapt";
 import { PPILL } from "../data/style";
 import { usePlanState } from "../state/plan";
 import type { TabId } from "../shell/tabs";
 
-const PHILOSOPHIES: [string, string, string][] = [
-  ["MINIMUM CHURN", "Move as little as possible", "Disturb no work that does not have to move"],
-  ["PROTECT DEADLINES", "Avoid any contract delay", "No contract finishes later than it does today"],
-  ["PROTECT PASSENGERS", "Minimise ECLO", "Keep special access and passenger impact to a minimum"],
-  ["PROTECT P1", "Prioritise Priority-1 programmes", "Keep every Priority-1 activity exactly where it is"],
-  ["CUSTOM", "Your own weighting", "Set the balance yourself and re-score the options"],
+const PHILOSOPHIES: { id: Philosophy; tag: string; name: string; goal: string }[] = [
+  { id: "churn", tag: "MINIMUM CHURN", name: "Move as little as possible", goal: "Disturb no work that does not have to move" },
+  { id: "deadlines", tag: "PROTECT DEADLINES", name: "Avoid contract delay", goal: "Buy completion dates back with ECLO and extra nights" },
+  { id: "passengers", tag: "PROTECT PASSENGERS", name: "Minimise ECLO", goal: "Keep special access and passenger impact to a minimum" },
+  { id: "p1", tag: "PROTECT P1", name: "Priority-1 first", goal: "Priority-1 programmes keep their dates; the cost lands elsewhere" },
+  { id: "custom", tag: "CUSTOM", name: "Your own weighting", goal: "Set the balance with the sliders" },
 ];
 
+const WEIGHT_LABEL: [keyof RecoveryWeights, string][] = [
+  ["churn", "Keep booked dates"],
+  ["deadlines", "Protect deadlines"],
+  ["passengers", "Protect passengers (ECLO)"],
+  ["priority1", "Protect Priority-1"],
+];
+
+const BUDGETS = [20, 30, 60, 90];
+
+type Option = { philosophy: Philosophy; run: Run; plan: PlanModel | null };
+
 export function Disruption({ go }: { go: (t: TabId) => void }) {
-  const { plan, instance, runWhatIf } = usePlanState();
+  const { plan, instance, adoptRun } = usePlanState();
   const [step, setStep] = useState(1);
   const [locId, setLocId] = useState("");
   const [from, setFrom] = useState(0);
@@ -28,7 +40,20 @@ export function Disruption({ go }: { go: (t: TabId) => void }) {
   const [reason, setReason] = useState("Drainage culvert collapse — reported by PICOP");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [recovery, setRecovery] = useState<{ run: Run; plan: PlanModel } | null>(null);
+  const [chosen, setChosen] = useState<Philosophy[]>(PHILOSOPHIES.map((p) => p.id));
+  const [weights, setWeights] = useState<RecoveryWeights>({ churn: 6, deadlines: 7, passengers: 5, priority1: 8 });
+  const [seconds, setSeconds] = useState(30);
+  const [options, setOptions] = useState<Option[]>([]);
+  const [picked, setPicked] = useState<Philosophy | null>(null);
+  const [adopted, setAdopted] = useState<string | null>(null);
+  const alive = useRef(true);
+  useEffect(() => {
+    // Reset on (re)mount: StrictMode unmounts and remounts once in development.
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   if (!plan || !instance) return null;
 
@@ -51,34 +76,59 @@ export function Disruption({ go }: { go: (t: TabId) => void }) {
 
   const sc = (i: number) => "step " + (step === i ? "on" : step > i ? "done" : "");
 
-  const solveRecovery = async () => {
+  const overrides = (): Override[] => {
+    const rows: Override[] = [];
+    for (let w = f; w <= t; w++)
+      rows.push({
+        location_id: loc,
+        week: w,
+        capacity: full ? 0 : Math.max(0, location.capacity - Math.ceil(location.capacity / 2)),
+        closed: full,
+      });
+    return rows;
+  };
+
+  const solveRecoveries = async () => {
+    if (!chosen.length) return;
     setBusy(true);
     setError(null);
+    setOptions([]);
+    setPicked(null);
+    setAdopted(null);
     try {
-      const overrides = [];
-      for (let w = f; w <= t; w++)
-        overrides.push({
-          location_id: loc,
-          week: w,
-          capacity: full ? 0 : Math.max(0, location.capacity - Math.ceil(location.capacity / 2)),
-          closed: full,
-        });
-      const done = await runWhatIf({ overrides, seconds: 90, label: "Disruption recovery" });
-      if (!done.schedule || !done.validation) {
-        setError(done.message ?? done.error ?? `The solver returned ${done.solver_status}.`);
-      } else {
-        const built = buildPlan(instance, done);
-        if (built) {
-          setRecovery({ run: done, plan: built });
-          setStep(4);
-        }
+      const started = await api.startRecoveries({
+        instance_id: instance.id,
+        scenario: plan.scenario,
+        baseline_id: plan.runId,
+        overrides: overrides(),
+        weights,
+        philosophies: PHILOSOPHIES.map((p) => p.id).filter((id) => chosen.includes(id)),
+        seconds,
+      });
+      // Poll the batch; each option appears as soon as its own solve lands.
+      for (;;) {
+        const batch = await api.recoveries(started.id);
+        if (!alive.current) return;
+        setOptions(
+          batch.results.map(({ philosophy, run }) => ({
+            philosophy,
+            run,
+            plan: run.schedule && run.validation ? buildPlan(instance, run) : null,
+          })),
+        );
+        if (batch.status === "completed") break;
+        await new Promise((r) => setTimeout(r, 1200));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The recovery run failed.");
+      if (alive.current) setError(e instanceof Error ? e.message : "The recovery runs failed.");
     } finally {
-      setBusy(false);
+      if (alive.current) setBusy(false);
     }
   };
+
+  const recovery = options.find((o) => o.philosophy === picked && o.plan) as
+    | (Option & { plan: PlanModel })
+    | undefined;
 
   // Change map: compare the approved plan with the recovery, activity by activity.
   const changes = recovery
@@ -329,52 +379,180 @@ export function Disruption({ go }: { go: (t: TabId) => void }) {
 
       {step === 3 && (
         <>
-          <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-            <span className="h2">Step 3 — Recovery</span>
-            <span className="small muted">
-              Re-solves scenario {plan.scenario} with {location.label} {full ? "closed" : "at half capacity"} in weeks{" "}
-              {f}–{t}, warm-started from the approved plan so it moves as little as it can.
-            </span>
-            <div>
-              <button className="btn btn-primary" onClick={solveRecovery} disabled={busy}>
-                {busy ? "Re-solving (90s budget)…" : "Re-solve around the disruption"}
-              </button>
+          <div className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span className="h2">Step 3 — Recovery</span>
+              <span className="small muted">
+                Each philosophy re-solves scenario {plan.scenario} with {location.label}{" "}
+                {full ? "closed" : "at half capacity"} in weeks {f}–{t}, warm-started from the approved plan and steered
+                by its own weights. All options are scored with the official formula, so they compare like for like.
+              </span>
             </div>
-          </div>
 
-          <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span className="h2">Recovery philosophies</span>
-              <div style={{ flex: 1 }} />
-              <span className="pill p-grey">Awaiting backend</span>
-            </div>
-            <div className="callout c-amber">
-              Five differently-weighted recoveries need a weighted objective in the solver —{" "}
-              <span className="mono">solve()</span> currently takes a scenario, not weights. The endpoint would be{" "}
-              <span className="mono">POST /api/disruptions/&#123;id&#125;/recoveries</span> with{" "}
-              <span className="mono">&#123;churn, deadlines, passengers, priority1&#125;</span>. Until then the single
-              re-solve above is the minimum-churn answer, because the run is warm-started from the approved plan.
-            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 10 }}>
-              {PHILOSOPHIES.map(([tag, name, goal]) => (
-                <div
-                  key={tag}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 5,
-                    padding: 12,
-                    borderRadius: 8,
-                    border: "1px solid #e6e9ef",
-                    background: "#fbfcfd",
-                    opacity: 0.75,
-                  }}
-                >
-                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".05em", color: "#5b6578" }}>{tag}</span>
-                  <span style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25 }}>{name}</span>
-                  <span className="small muted">{goal}</span>
+              {PHILOSOPHIES.map((ph) => {
+                const on = chosen.includes(ph.id);
+                const opt = options.find((o) => o.philosophy === ph.id);
+                const v = opt?.plan?.validation;
+                const pending = opt && (opt.run.status === "queued" || opt.run.status === "running");
+                const moved = opt?.run.diff?.changed_activities.length;
+                const best = v && options.every((o) => !o.plan || o.plan.validation.score >= v.score);
+                return (
+                  <div
+                    key={ph.id}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 5,
+                      padding: 12,
+                      borderRadius: 8,
+                      border: `${picked === ph.id ? 2 : 1}px solid ${picked === ph.id ? "#1d5fd1" : "#e6e9ef"}`,
+                      background: on ? "#fff" : "#fbfcfd",
+                      opacity: on ? 1 : 0.6,
+                    }}
+                  >
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: busy ? "default" : "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        disabled={busy}
+                        onChange={() =>
+                          setChosen((c) => (c.includes(ph.id) ? c.filter((x) => x !== ph.id) : [...c, ph.id]))
+                        }
+                      />
+                      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".05em", color: "#5b6578" }}>
+                        {ph.tag}
+                      </span>
+                    </label>
+                    <span style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.25 }}>{ph.name}</span>
+                    <span className="small muted">{ph.goal}</span>
+
+                    {opt && <div className="divider" />}
+                    {pending && <span className="pill p-info">{opt.run.status === "queued" ? "Queued" : "Solving…"}</span>}
+                    {opt && !pending && !v && (
+                      <span className="small" style={{ color: "#a12a22" }}>
+                        {opt.run.message ?? opt.run.error ?? "No recovery found."}
+                      </span>
+                    )}
+                    {v && (
+                      <>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          <span className={v.feasible ? "pill p-ok" : "pill p-crit"}>
+                            {v.feasible ? "Feasible" : `${v.hard_violations.length} violations`}
+                          </span>
+                          {best && <span className="pill p-info">Best score</span>}
+                        </div>
+                        <div className="kv" style={{ gridTemplateColumns: "1fr", fontSize: 12 }}>
+                          <div>
+                            <span>Score</span>
+                            <span style={{ fontWeight: 600 }}>
+                              {plan.validation.score} → {v.score}
+                            </span>
+                          </div>
+                          <div>
+                            <span>Activities moved</span>
+                            <span>{moved ?? "—"}</span>
+                          </div>
+                          <div>
+                            <span>Overrun days</span>
+                            <span>
+                              {plan.validation.soft_scores.overrun_days_total} → {v.soft_scores.overrun_days_total}
+                            </span>
+                          </div>
+                          <div>
+                            <span>ECLO / excess</span>
+                            <span>
+                              {v.soft_scores.eclo_nights_total} / {v.soft_scores.excess_access_nights_total}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          className={picked === ph.id ? "btn btn-sm btn-primary" : "btn btn-sm"}
+                          onClick={() => {
+                            setPicked(ph.id);
+                            setStep(4);
+                          }}
+                        >
+                          See change map
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {plan.scenario === "A" && (
+              <span className="small muted">
+                Scenario A allows no ECLO or excess nights, so the passenger weight has nothing to trade and options may
+                coincide. Scenarios B and C give the philosophies more room to differ.
+              </span>
+            )}
+            {(() => {
+              const landed = options.filter((o) => o.plan);
+              const same =
+                !busy &&
+                landed.length > 1 &&
+                landed.every(
+                  (o) =>
+                    o.plan!.validation.score === landed[0].plan!.validation.score &&
+                    (o.run.diff?.changed_activities ?? []).join() === (landed[0].run.diff?.changed_activities ?? []).join(),
+                );
+              return same ? (
+                <div className="callout c-blue">
+                  Every philosophy found the same recovery: this disruption leaves no trade-off to make, so there is
+                  nothing to choose between.
                 </div>
-              ))}
+              ) : null;
+            })()}
+
+            {chosen.includes("custom") && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14 }}>
+                {WEIGHT_LABEL.map(([key, label]) => (
+                  <div key={key} className="field">
+                    <label htmlFor={`w-${key}`}>
+                      {label} · <b>{weights[key]}</b>
+                    </label>
+                    <input
+                      id={`w-${key}`}
+                      type="range"
+                      min={0}
+                      max={10}
+                      value={weights[key]}
+                      disabled={busy}
+                      onChange={(e) => setWeights((w) => ({ ...w, [key]: Number(e.target.value) }))}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div className="field" style={{ width: 180 }}>
+                <label htmlFor="rb">Budget per recovery</label>
+                <select
+                  id="rb"
+                  className="input"
+                  value={String(seconds)}
+                  disabled={busy}
+                  onChange={(e) => setSeconds(Number(e.target.value))}
+                >
+                  {BUDGETS.map((b) => (
+                    <option key={b} value={String(b)}>
+                      {b} seconds
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <span className="small muted" style={{ flex: 1 }}>
+                The recoveries solve one after another: up to {chosen.length * seconds}s in total. Weights steer the
+                search only; 5 on every slider reproduces the official objective.
+              </span>
+              <button className="btn btn-primary" onClick={solveRecoveries} disabled={busy || !chosen.length}>
+                {busy
+                  ? `Solving ${options.filter((o) => o.run.status !== "queued" && o.run.status !== "running").length}/${chosen.length}…`
+                  : `Generate ${chosen.length} recover${chosen.length === 1 ? "y" : "ies"}`}
+              </button>
             </div>
           </div>
 
@@ -463,14 +641,28 @@ export function Disruption({ go }: { go: (t: TabId) => void }) {
                 Compare in Scenarios
               </button>
               <div style={{ flex: 1 }} />
-              <span className="small muted" style={{ maxWidth: 320, textAlign: "right" }}>
-                Applying a recovery needs a backend endpoint to promote a run to the approved plan.
-              </span>
+              {adopted === recovery.run.id ? (
+                <span className="pill p-ok">Adopted — every tab now shows this plan</span>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  disabled={!recovery.plan.validation.feasible}
+                  title={recovery.plan.validation.feasible ? "" : "Only a feasible recovery can be adopted"}
+                  onClick={() => {
+                    adoptRun(recovery.run);
+                    setAdopted(recovery.run.id);
+                  }}
+                >
+                  Adopt this recovery
+                </button>
+              )}
             </div>
           </div>
 
           <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 9 }}>
-            <span className="h2">Recovery summary</span>
+            <span className="h2">
+              Recovery summary · {PHILOSOPHIES.find((p) => p.id === recovery.philosophy)?.tag.toLowerCase()}
+            </span>
             <div className="kv" style={{ gridTemplateColumns: "1fr" }}>
               <div>
                 <span>Solver</span>

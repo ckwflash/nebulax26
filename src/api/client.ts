@@ -6,7 +6,13 @@ import type {
   DemoPayload,
   HealthReply,
   InstanceSummary,
+  AccessRequest,
   Override,
+  RequestAssessment,
+  RequestStatus,
+  Philosophy,
+  RecoveryBatch,
+  RecoveryWeights,
   ReportEntry,
   ReportGenerated,
   Run,
@@ -82,6 +88,39 @@ export const api = {
     overrides?: Override[];
     label?: string;
   }) => call<Run>("/api/runs", { method: "POST", body: JSON.stringify(body) }),
+  startRecoveries: (body: {
+    instance_id: string;
+    scenario: ScenarioId;
+    baseline_id: string;
+    overrides: Override[];
+    weights: RecoveryWeights;
+    philosophies: Philosophy[];
+    seconds: number;
+  }) =>
+    call<{ id: string; runs: { philosophy: Philosophy; run_id: string }[] }>("/api/disruptions/recoveries", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  recoveries: (id: string) => call<RecoveryBatch>(`/api/disruptions/recoveries/${id}`),
+  requests: (instanceId: string) => call<AccessRequest[]>(`/api/requests?instance_id=${instanceId}`),
+  createRequest: (body: {
+    instance_id: string;
+    contract_number: string;
+    contractor: string;
+    request: string;
+    location_id: string;
+    week_from: number;
+    week_to: number;
+    reason: string;
+  }) => call<AccessRequest>("/api/requests", { method: "POST", body: JSON.stringify(body) }),
+  setRequestStatus: (id: string, status: RequestStatus) =>
+    call<AccessRequest>(`/api/requests/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  assessRequest: (id: string, baselineId: string, seconds: number) =>
+    call<{ id: string; runs: string[] }>(`/api/requests/${id}/assess`, {
+      method: "POST",
+      body: JSON.stringify({ baseline_id: baselineId, seconds }),
+    }),
+  assessment: (id: string) => call<RequestAssessment>(`/api/requests/${id}/assessment`),
   reports: () => call<ReportEntry[]>("/api/reports"),
   generateReport: (id: string, runId: string) =>
     call<ReportGenerated>(`/api/reports/${id}/generate`, { method: "POST", body: JSON.stringify({ run_id: runId }) }),
