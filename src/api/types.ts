@@ -236,3 +236,19 @@ export interface HealthReply {
   chat_provider: string;
   chat_model: string | null;
 }
+
+/** GET /api/reports — one entry of the document-pack catalogue. */
+export interface ReportEntry {
+  id: string;
+  name: string;
+  audience: string;
+  description: string;
+  format: "PDF" | "XLSX" | "HTML" | "CSV";
+  size_hint: string;
+  generated_at: string | null;
+}
+
+export interface ReportGenerated {
+  download_url: string;
+  generated_at: string;
+}

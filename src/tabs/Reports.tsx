@@ -1,34 +1,116 @@
 // Spec section 13 — Reports. The submission bundle is real (/api/runs/{id}/export);
-// the document pack is waiting on backend support and says so rather than pretending.
+// the document pack is listed by /api/reports and rendered per run by the service.
 
+import { useEffect, useState } from "react";
+import { api } from "../api/client";
+import type { ReportEntry } from "../api/types";
 import { usePlan } from "../state/plan";
 
-const PENDING: [string, string, "PDF" | "XLSX", string][] = [
-  [
-    "Management summary",
-    "For the executive team",
-    "PDF",
-    "Two pages: feasibility, delays, priority impacts, ECLO use and the main risks carried into the period.",
-  ],
-  [
-    "Risk & resilience report",
-    "For the planning team",
-    "PDF",
-    "Fragility scores with their drivers, the congested weeks and locations, and the options that would strengthen the plan.",
-  ],
-  [
-    "Contractor access pack",
-    "For each contractor",
-    "PDF",
-    "One section per contractor: booked possessions, dates, locations, weekly limits and anything awaiting confirmation.",
-  ],
-  [
-    "Delay and ECLO register",
-    "For commercial review",
-    "PDF",
-    "Contract-by-contract completion against deadline, with every ECLO night and the reason it was needed.",
-  ],
-];
+const FORMAT_PILL: Record<ReportEntry["format"], string> = {
+  PDF: "pill p-crit",
+  XLSX: "pill p-ok",
+  CSV: "pill p-ok",
+  HTML: "pill p-info",
+};
+
+type Made = { url: string; at: string } | { error: string } | "working";
+
+/** The document pack: catalogue from GET /api/reports, one generate call per report. */
+function DocumentPack({ runId }: { runId: string }) {
+  const [catalog, setCatalog] = useState<ReportEntry[] | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  // Keyed by report and run, so switching scenario never offers a link to the old run's report.
+  const [made, setMade] = useState<Record<string, Made>>({});
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .reports()
+      .then((list) => alive && setCatalog(list))
+      .catch((e: unknown) => alive && setFailed(e instanceof Error ? e.message : "The report list could not be loaded."));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const generate = async (id: string) => {
+    const key = `${id}:${runId}`;
+    setMade((m) => ({ ...m, [key]: "working" }));
+    try {
+      const done = await api.generateReport(id, runId);
+      setMade((m) => ({ ...m, [key]: { url: done.download_url, at: done.generated_at } }));
+    } catch (e) {
+      setMade((m) => ({ ...m, [key]: { error: e instanceof Error ? e.message : "Generation failed." } }));
+    }
+  };
+
+  return (
+    <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <span className="h2">Document pack</span>
+          <span className="small muted">Formatted reports for people who do not read CSVs</span>
+        </div>
+      </div>
+
+      {failed && <div className="callout c-red">{failed}</div>}
+      {!catalog && !failed && <span className="small muted">Loading the report list…</span>}
+      {catalog && (
+        <span className="small muted">
+          Each report opens as a printable page for run <span className="mono">{runId}</span>. Use the browser's
+          Print → Save as PDF for a paper copy.
+        </span>
+      )}
+
+      {catalog?.map((r) => {
+        const state = made[`${r.id}:${runId}`];
+        return (
+          <div
+            key={r.id}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              padding: "11px 12px",
+              border: "1px solid #e6e9ef",
+              borderRadius: 7,
+              background: "#fbfcfd",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontWeight: 600, fontSize: 13.5 }}>{r.name}</span>
+              <span className={FORMAT_PILL[r.format] ?? "pill p-grey"}>{r.format}</span>
+              <div style={{ flex: 1 }} />
+              {state && typeof state === "object" && "url" in state ? (
+                <a className="btn btn-sm btn-primary" href={state.url} target="_blank" rel="noreferrer">
+                  Open report
+                </a>
+              ) : (
+                <button className="btn btn-sm" onClick={() => generate(r.id)} disabled={state === "working"}>
+                  {state === "working" ? "Generating…" : "Generate"}
+                </button>
+              )}
+            </div>
+            <span className="small muted">
+              {r.audience} · {r.size_hint}
+            </span>
+            <span className="small muted" style={{ lineHeight: 1.5 }}>
+              {r.description}
+            </span>
+            {state && typeof state === "object" && "error" in state && (
+              <span className="small" style={{ color: "#a12a22" }}>
+                {state.error}
+              </span>
+            )}
+            {state && typeof state === "object" && "at" in state && (
+              <span className="small muted">Generated {new Date(state.at).toLocaleTimeString()}</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function Reports() {
   const plan = usePlan();
@@ -110,56 +192,24 @@ export function Reports() {
             </div>
           </div>
 
-          <a className="btn btn-primary" href={`/api/runs/${plan.runId}/export`}>
-            Download submission bundle (.zip)
-          </a>
+          {/* The service 409s on an infeasible run, so don't offer a link that lands on a raw error page. */}
+          {v.feasible ? (
+            <a className="btn btn-primary" href={`/api/runs/${plan.runId}/export`}>
+              Download submission bundle (.zip)
+            </a>
+          ) : (
+            <button className="btn btn-primary" disabled title="Only a feasible plan can be exported">
+              Download submission bundle (.zip)
+            </button>
+          )}
           <span className="small muted">
-            Served by the planning service for run {plan.runId}. Contains the three CSVs exactly as the validator
-            reads them.
+            {v.feasible
+              ? `Served by the planning service for run ${plan.runId}. Contains the three CSVs exactly as the validator reads them.`
+              : `This run has ${v.hard_violations.length} hard violation${v.hard_violations.length === 1 ? "" : "s"}${v.safety_verified ? "" : " and no verified safety witness"}, so it cannot be submitted. Re-solve with a longer budget or another scenario.`}
           </span>
         </div>
 
-        <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <span className="h2">Document pack</span>
-              <span className="small muted">Formatted reports for people who do not read CSVs</span>
-            </div>
-            <div style={{ flex: 1 }} />
-            <span className="pill p-grey">Awaiting backend</span>
-          </div>
-
-          <div className="callout c-amber">
-            These need <span className="mono">GET /api/reports</span> and{" "}
-            <span className="mono">POST /api/reports/&#123;id&#125;/generate</span>. The figures they would carry are
-            already in this run — nothing else is missing.
-          </div>
-
-          {PENDING.map((r) => (
-            <div
-              key={r[0]}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 4,
-                padding: "11px 12px",
-                border: "1px solid #e6e9ef",
-                borderRadius: 7,
-                background: "#fbfcfd",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontWeight: 600, fontSize: 13.5 }}>{r[0]}</span>
-                <div style={{ flex: 1 }} />
-                <span className={r[2] === "PDF" ? "pill p-crit" : "pill p-ok"}>{r[2]}</span>
-              </div>
-              <span className="small muted">{r[1]}</span>
-              <span className="small muted" style={{ lineHeight: 1.5 }}>
-                {r[3]}
-              </span>
-            </div>
-          ))}
-        </div>
+        <DocumentPack runId={plan.runId} />
       </div>
     </>
   );

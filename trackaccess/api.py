@@ -13,13 +13,14 @@ from typing import Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from .domain import FILES, InputError, Instance, Override, Scenario, Schedule
 from .export import export_zip, read_schedule
 from .model import chat_config
+from .reports import CATALOG, REPORT_IDS, render as render_report
 from .solver import solve
 from .store import LeaseLost, StorageError, Store
 from .validation import validate
@@ -279,6 +280,38 @@ def download(run_id: str):
     if not report["feasible"]:
         raise HTTPException(409, "Export requires a complete schedule with checked safety.")
     return Response(export_zip(schedule), media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="nightshift-{schedule.scenario}-{run_id[:8]}.zip"'})
+
+
+def report_inputs(report_id, run_id):
+    if report_id not in REPORT_IDS:
+        raise HTTPException(404, "Unknown report.")
+    run = run_for(run_id)
+    if not run.get("schedule") or not run.get("validation"):
+        raise HTTPException(409, "Reports need a completed schedule. Wait for the run to finish.")
+    return instance_for(run["instance_id"]), run
+
+
+@app.get("/api/reports")
+def list_reports():
+    return [{**r, "format": "HTML", "generated_at": None} for r in CATALOG]
+
+
+class ReportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    run_id: str = Field(min_length=1, max_length=64)
+
+
+@app.post("/api/reports/{report_id}/generate")
+def generate_report(report_id: str, request: ReportRequest):
+    # Rendering is deterministic and cheap, so "generate" checks it renders and hands back
+    # a link; the download renders again rather than storing a copy.
+    render_report(report_id, *report_inputs(report_id, request.run_id))
+    return {"download_url": f"/api/reports/{report_id}/download?run={request.run_id}", "generated_at": now()}
+
+
+@app.get("/api/reports/{report_id}/download")
+def download_report(report_id: str, run: str):
+    return HTMLResponse(render_report(report_id, *report_inputs(report_id, run)))
 
 
 class ChatRequest(BaseModel):

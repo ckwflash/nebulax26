@@ -7,6 +7,8 @@ import type {
   HealthReply,
   InstanceSummary,
   Override,
+  ReportEntry,
+  ReportGenerated,
   Run,
   ScenarioId,
 } from "./types";
@@ -80,6 +82,9 @@ export const api = {
     overrides?: Override[];
     label?: string;
   }) => call<Run>("/api/runs", { method: "POST", body: JSON.stringify(body) }),
+  reports: () => call<ReportEntry[]>("/api/reports"),
+  generateReport: (id: string, runId: string) =>
+    call<ReportGenerated>(`/api/reports/${id}/generate`, { method: "POST", body: JSON.stringify({ run_id: runId }) }),
   chat: (body: { instance_id: string; run_id: string; message: string }) =>
     call<ChatReply>("/api/chat", { method: "POST", body: JSON.stringify(body) }),
 };

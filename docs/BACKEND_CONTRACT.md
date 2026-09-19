@@ -13,10 +13,9 @@ card and nothing else. That is deliberate.
 
 ## 0. What you actually need to do
 
-1. **Fix the Windows import blocker** (§3). Until this is done nobody on a Windows
-   machine can see the UI with data, including during the demo rehearsal.
-2. **Build three endpoint groups** (§4): contractor requests, reports, disruption
-   recoveries. The UI already has the tabs; they show "awaiting backend" panels naming
+1. ~~Fix the Windows import blocker (§3).~~ Done.
+2. **Build two endpoint groups** (§4): contractor requests and disruption recoveries.
+   Reports (§4.2) is done. The UI already has the tabs; they show "awaiting backend" panels naming
    these endpoints.
 3. **Optional, 5 minutes:** add a `contractor` column (§5).
 
@@ -286,26 +285,29 @@ will match the UI's loading behaviour.
 Storage: requests need to persist somewhere. `store.py` already does versioned JSON blobs;
 `requests/{id}` alongside `runs/{id}` would be the obvious home.
 
-### 4.2 Reports — Reports tab
+### 4.2 Reports — Reports tab ✅ built
 
-The submission bundle already works via `/api/runs/{id}/export`. What is missing is the
-formatted document pack.
+Implemented in `trackaccess/reports.py`, routes in `api.py`, test `test_document_pack`.
+Four reports, each a self-contained printable HTML page (Print → Save as PDF gives
+the paper copy), rendered on demand from the run's `validation` and `schedule`:
+`management-summary`, `risk-resilience`, `contractor-access-pack`, `delay-eclo-register`.
 
 ```
-GET /api/reports
--> [ { "id": "management-summary", "name": "Management summary",
-       "audience": "For the executive team", "format": "PDF" | "XLSX",
-       "description": "...", "size_hint": "2 pages · 8 figures",
-       "generated_at": "2026-09-18T08:10:00Z" | null } ]
+GET  /api/reports
+-> [ { "id", "name", "audience", "description", "size_hint",
+       "format": "HTML", "generated_at": null } ]
 
 POST /api/reports/{id}/generate   { "run_id": "<run id>" }
--> { "download_url": "/api/reports/management-summary/download?run=<run id>",
-     "generated_at": "..." }
+-> { "download_url": "/api/reports/{id}/download?run=<run id>", "generated_at": "..." }
+   404 unknown report or run · 409 run has no completed schedule
+
+GET  /api/reports/{id}/download?run=<run id>   -> text/html
 ```
 
-Every figure these reports need is already in `validation` — this is rendering, not
-computation. If PDF generation is more than you want to take on, returning XLSX or even
-HTML for all six is fine; the UI only reads `format` to colour a pill.
+Nothing is stored: rendering is deterministic and cheap, so `generate` checks the report
+renders and the download renders it again. An infeasible run still renders, with a
+"must not be issued" banner. The Risk report deliberately does not compute fragility
+(§6); it reports capacity pressure and no-slack contracts from `validation`.
 
 ### 4.3 Disruption recoveries — the one that needs a design decision
 

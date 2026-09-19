@@ -183,3 +183,19 @@ def test_late_b_fallback_cannot_be_exported(client):
     assert run['validation']['coverage_percent'] == 100
     assert not run['validation']['feasible']
     assert client.get('/api/runs/' + run_id + '/export').status_code == 409
+
+
+def test_document_pack(client):
+    run=client.get('/api/demo').json()['run']
+    catalog=client.get('/api/reports').json()
+    assert {r['id'] for r in catalog}=={'management-summary','risk-resilience','contractor-access-pack','delay-eclo-register'}
+    for report in catalog:
+        made=client.post(f"/api/reports/{report['id']}/generate",json=dict(run_id=run['id']))
+        assert made.status_code==200
+        page=client.get(made.json()['download_url'])
+        assert page.status_code==200 and page.headers['content-type'].startswith('text/html')
+        assert run['id'] in page.text and '<script' not in page.text
+    pack=client.get(f"/api/reports/contractor-access-pack/download?run={run['id']}").text
+    assert 'C006' in pack and 'A036' in pack
+    assert client.post('/api/reports/nope/generate',json=dict(run_id=run['id'])).status_code==404
+    assert client.post('/api/reports/management-summary/generate',json=dict(run_id='missing')).status_code==404
