@@ -58,6 +58,7 @@ failure (service down) is reported separately as "not reachable".
 |---|---|---|
 | GET | `/api/health` | startup probe |
 | GET | `/api/demo` | initial load, every tab |
+| POST | `/api/instances` | "Load demand book" dialog |
 | GET | `/api/instances/{id}` | reload |
 | POST | `/api/runs` | scenario switch, Scenarios, Disruption |
 | GET | `/api/runs/{id}` | polling |
@@ -113,7 +114,7 @@ and the heatmap all depend on it.
   "id": "public-A-4614ef3b6b98b084",
   "instance_id": "4614ef3b6b98b084",
   "scenario": "A",                     // "A" | "B" | "C"
-  "status": "completed",               // queued | running | completed | failed
+  "status": "completed",               // queued | running | completed | failed | no_solution
   "label": "Public A",
   "overrides": [], "baseline_id": null,
   "schedule":   { scenario, access[], occupancy[], results[], witness{} },
@@ -190,9 +191,29 @@ degrade gracefully, tell me and I will gate the button on `feasible`.
 The Ask tab renders `answer`, `notice` and `evidence[].title` / `.detail`. It ignores
 `preview` today — if you want scenario previews wired into the UI, that is a small change.
 
+### 2.6 `POST /api/instances`
+
+Multipart, field name `files`: either the eight instance CSVs (`01_LINES.csv` …
+`08_ACTIVITY_DETAILS.csv`) or a single ZIP containing them, 5 MB total. Returns
+`Instance.summary()` (same shape as `instance` in 2.1). The frontend then calls
+`POST /api/runs` for the chosen scenario and rebinds every tab to the new instance and run.
+
+The upload dialog checks names, count and size before sending, mirroring the server's
+rules, so a `422` here should only come from content problems (bad CSV, bad ZIP, missing
+file inside a ZIP). **Keep `detail` readable**: the dialog shows it verbatim.
+
+An infeasible book uploads fine (200) and its run ends `status: "no_solution"` with a
+readable `message`. The dialog shows that message and keeps the current plan. Scenario
+switches treat `no_solution` the same way. The last uploaded instance and run IDs are kept
+in `localStorage`, and on reload the app restores them via `GET /api/instances/{id}` and
+`GET /api/runs/{id}`, so both must keep working for stored IDs.
+
 ---
 
 ## 3. Blocking: the service will not start on Windows
+
+> **Status:** the guard below is now applied in `trackaccess/store.py`, and the service
+> starts on Windows.
 
 ```
 File "trackaccess\store.py", line 3, in <module>

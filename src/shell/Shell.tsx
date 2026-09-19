@@ -1,16 +1,25 @@
 // Spec sections 2.2–2.3 — top bar and main area. The crumb and the feasibility pill
 // come from the loaded run rather than being fixed text.
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { ScenarioId } from "../api/types";
 import { SCENARIO_LABEL, usePlanState } from "../state/plan";
 import { Nav } from "./Nav";
+import { UploadDialog } from "./UploadDialog";
 import { TAB_TITLE, type TabId } from "./tabs";
 
 const SCENARIOS: ScenarioId[] = ["A", "B", "C"];
 
-function TopBar({ current, go }: { current: TabId; go: (t: TabId) => void }) {
-  const { plan, status, solving, solvingLabel, switchScenario } = usePlanState();
+function TopBar({
+  current,
+  go,
+  onUpload,
+}: {
+  current: TabId;
+  go: (t: TabId) => void;
+  onUpload: () => void;
+}) {
+  const { plan, status, error, solving, solvingLabel, switchScenario } = usePlanState();
   const feasible = plan?.validation.feasible;
   const crumb = plan
     ? `${plan.name} · Scenario ${plan.scenario} (${SCENARIO_LABEL[plan.scenario]}) · ${feasible ? "Feasible" : "Check violations"}`
@@ -57,6 +66,14 @@ function TopBar({ current, go }: { current: TabId; go: (t: TabId) => void }) {
         </div>
       )}
 
+      <button className="btn btn-sm" onClick={onUpload} disabled={solving} title="Load your own instance CSVs">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 16V4M7 9l5-5 5 5" />
+          <path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
+        </svg>
+        Load demand book
+      </button>
+
       <button className="btn btn-sm" onClick={() => go("ask")}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M4 5h16v11H9l-5 4z" />
@@ -69,6 +86,10 @@ function TopBar({ current, go }: { current: TabId; go: (t: TabId) => void }) {
         <span className="pill p-info">{solvingLabel || "Solving…"}</span>
       ) : status === "error" ? (
         <span className="pill p-crit">Service offline</span>
+      ) : error ? (
+        <span className="pill p-crit" title={error}>
+          Last run did not solve
+        </span>
       ) : feasible === false ? (
         <span className="pill p-warn">{plan?.validation.hard_violations.length} violations</span>
       ) : (
@@ -110,6 +131,7 @@ export function Shell({
   go: (t: TabId) => void;
   children: ReactNode;
 }) {
+  const [uploading, setUploading] = useState(false);
   return (
     <div
       style={{
@@ -124,7 +146,7 @@ export function Shell({
     >
       <Nav current={current} go={go} />
       <div style={{ flex: 1, minWidth: 0, height: "100%", display: "flex", flexDirection: "column" }}>
-        <TopBar current={current} go={go} />
+        <TopBar current={current} go={go} onUpload={() => setUploading(true)} />
         {/* position:relative — the Schedule panel and the Scenarios popups sit inside this. */}
         <main
           style={{
@@ -139,6 +161,7 @@ export function Shell({
           }}
         >
           {children}
+          {uploading && <UploadDialog onClose={() => setUploading(false)} />}
         </main>
       </div>
     </div>

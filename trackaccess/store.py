@@ -1,6 +1,5 @@
 """Atomic local storage and authoritative, generation-checked GCS storage."""
 import copy
-import fcntl
 import hashlib
 import json
 import os
@@ -9,6 +8,11 @@ import threading
 import time
 from pathlib import Path
 from uuid import uuid4
+
+try:
+    import fcntl
+except ModuleNotFoundError:  # Windows dev box; the cross-process file lease is POSIX-only
+    fcntl = None
 
 from google.api_core.exceptions import GoogleAPIError, NotFound, PreconditionFailed
 from google.cloud import storage
@@ -84,7 +88,8 @@ class Store:
             except GoogleAPIError as exc:
                 raise StorageError("Durable storage is unavailable. Please retry.") from exc
         with self.lock, (self.root / ".write-lock").open("a") as lockfile:
-            fcntl.flock(lockfile, fcntl.LOCK_EX)
+            if fcntl is not None:
+                fcntl.flock(lockfile, fcntl.LOCK_EX)
             try:
                 current = hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else 0
                 if version is not None and version != current:
@@ -94,7 +99,8 @@ class Store:
                 temp.write_text(content)
                 temp.replace(path)
             finally:
-                fcntl.flock(lockfile, fcntl.LOCK_UN)
+                if fcntl is not None:
+                    fcntl.flock(lockfile, fcntl.LOCK_UN)
         return hashlib.sha256(content.encode()).hexdigest()
 
     def put(self, key, value):

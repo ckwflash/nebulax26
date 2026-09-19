@@ -1,7 +1,7 @@
 // RailPlan root. One tab is visible at a time, but every tab stays mounted so its
 // in-memory state survives switching away and back (spec section 1).
 
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { Shell } from "./shell/Shell";
 import type { TabId } from "./shell/tabs";
 import { PlanProvider, usePlanState } from "./state/plan";
@@ -16,7 +16,7 @@ import { Requests } from "./tabs/Requests";
 import { Reports } from "./tabs/Reports";
 
 function Gate({ children }: { children: ReactNode }) {
-  const { status, error, reload } = usePlanState();
+  const { status, error, reload, instance } = usePlanState();
 
   if (status === "loading")
     return (
@@ -32,9 +32,10 @@ function Gate({ children }: { children: ReactNode }) {
         <span style={{ fontWeight: 600 }}>The plan could not be loaded.</span>
         <span>{error}</span>
         <span className="small muted">
-          The frontend reads everything from the planning service — no figures are bundled into the page.
+          The frontend reads everything from the planning service — no figures are bundled into the page. Once the
+          service is up you can retry, or load your own demand book from the top bar.
         </span>
-        <div>
+        <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-sm btn-primary" onClick={reload}>
             Try again
           </button>
@@ -42,7 +43,9 @@ function Gate({ children }: { children: ReactNode }) {
       </div>
     );
 
-  return <>{children}</>;
+  // Keyed by book: loading a different demand book remounts every tab, so selections,
+  // what-if results and chat history from the old book cannot leak into the new one.
+  return <Fragment key={instance?.id}>{children}</Fragment>;
 }
 
 export function Tabs() {

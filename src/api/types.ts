@@ -188,7 +188,7 @@ export interface Run {
   id: string;
   instance_id: string;
   scenario: ScenarioId;
-  status: "queued" | "running" | "completed" | "failed";
+  status: "queued" | "running" | "completed" | "failed" | "no_solution";
   label: string;
   created_at: string;
   overrides: Override[];
