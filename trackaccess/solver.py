@@ -17,7 +17,7 @@ from .validation import validate
 DEADLINE_PRICE = 10_000
 
 
-def solve(instance: Instance, scenario: str, seconds=60, overrides=(), baseline: Schedule | None = None, callback: Callable | None = None, cancel_event=None, relax_deadline=False):
+def solve(instance: Instance, scenario: str, seconds=90, overrides=(), baseline: Schedule | None = None, callback: Callable | None = None, cancel_event=None, relax_deadline=False):
     if scenario not in ("A", "B", "C"):
         raise ValueError("Scenario must be A, B or C.")
     started = time.monotonic()

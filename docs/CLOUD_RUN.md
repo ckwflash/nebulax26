@@ -9,7 +9,7 @@ The temporary public demo uses project `qwiklabs-gcp-00-71d4c677d0cc`, region `u
 - Runtime service account: `nightshift-run@qwiklabs-gcp-00-71d4c677d0cc.iam.gserviceaccount.com`
 - Private state bucket: `qwiklabs-gcp-00-71d4c677d0cc-nightshift-state`
 - Runtime: 2 vCPU, 4 GiB, one warm instance, service maximum one, concurrency 20, port 8080, instance-based billing.
-- Solver: two threads, one simultaneous solve, four admitted jobs, maximum 300 seconds per solve.
+- Solver: two threads, one simultaneous solve, four admitted jobs, default 90 seconds per solve and maximum 300 seconds with Improve.
 - Chat: Vertex AI / Gemini 3.8 Flash, using the global Vertex endpoint and the attached runtime identity. No API key is deployed.
 
 Cloud Storage is authoritative when `NIGHTSHIFT_GCS_BUCKET` is set. Uploads and completed runs are acknowledged only after durable writes. Every running job has a 60-second ownership lease, renewed every 10 seconds with conditional object-generation writes. Lost ownership cancels the search; stale workers cannot overwrite a new owner. Polling an abandoned run recovers its last checked incumbent after the lease expires. Local development continues to use files.
@@ -58,11 +58,11 @@ The local suite passes 212 tests. The production frontend build, Worker compatib
 ## Release identifiers
 
 - Service URL: `https://nightshift-717753975344.us-central1.run.app` (public access verified).
-- Image digest: `sha256:d270c8e5ffc0ee4ec5aeea9dcd5e390b463fa296d91ebcdca51e9f8c6bc8c0a8`.
+- Image digest: `sha256:b9d9ef57e2525e22d57b6b12be3aa175e02b0a93c94c74d0ea0bcf36ed378dd1`.
 - Image repository: `us-central1-docker.pkg.dev/qwiklabs-gcp-00-71d4c677d0cc/nightshift/nightshift`.
-- Successful Cloud Build: `d1328cb7-15b9-4f78-8106-aebe25d6837b` in `us-central1`.
+- Successful Cloud Build: `0fb9bf76-634c-401a-806b-e6731532fc88` in `us-central1`.
 - First verified revision: `nightshift-00001-t4b`.
-- Current serving revision: `nightshift-00005-xil` (100% of public traffic).
+- Current serving revision: `nightshift-00007-map` (100% of public traffic).
 - Private smoke report: `.nightshift/deployment/verification.json`.
 - Reusable verification tools: `scripts/verify_hosted.py`, `scripts/verify_recovery.py`.
 
@@ -110,3 +110,10 @@ That longer check exposed an intermittent 404 when a GCS checkpoint generation w
 Cloud Build `d1328cb7-15b9-4f78-8106-aebe25d6837b` built the repair. Revision `nightshift-00005-xil` first received zero main-URL traffic; its tagged candidate completed a fresh 108-activity C solve with uninterrupted polling in 53.70 solver seconds, score/bound 50.4, full coverage, OPTIMAL status and a valid three-CSV export. The difference from the earlier runtime is an observation, not a demonstrated performance improvement. The candidate was promoted to 100% of public traffic and the temporary tag removed. Runtime sizing, Vertex configuration, bucket and public URL remain unchanged.
 
 The previous Vertex-enabled revision is `nightshift-00003-lah`, with image digest `sha256:bcb37a2d3831e9b6a7b283b18f2053e9af976f27c11db119cd205d018e330950`. It remains available for rollback, but contains the checkpoint-read race. Input fixtures and test reports are excluded by the build-upload allowlist.
+
+
+## 90-second default — 18 September 2026
+
+Standard solves and all previews now default to 90 seconds in the frontend, API and command-line solver. Improve retains its 300-second limit. The 38 API tests and production frontend build passed. The candidate revision accepted a request without an explicit budget as 90 seconds, solved public Scenario B to an optimal score of 30 with 100% coverage, and exported exactly the three required CSVs. Its frontend matched the locally verified build.
+
+Revision `nightshift-00007-map` now serves all public traffic. Anonymous checks confirmed the 90-second API default and updated frontend; completed schedules survived the replacement. Vertex, instance sizing and storage settings remain unchanged. Verification is recorded in `.nightshift/deployment/budget90-verification.json`. The previous revision `nightshift-00005-xil` remains available for rollback.

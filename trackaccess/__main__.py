@@ -14,7 +14,7 @@ def main():
     s = sub.add_parser("solve")
     s.add_argument("--instance", default="PS1/01_data")
     s.add_argument("--scenario", choices=["A", "B", "C", "all"], default="all")
-    s.add_argument("--seconds", type=float, default=60)
+    s.add_argument("--seconds", type=float, default=90)
     s.add_argument("--out", default="outputs")
     v = sub.add_parser("validate")
     v.add_argument("--instance", default="PS1/01_data")

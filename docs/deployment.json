@@ -3,9 +3,9 @@
   "project": "qwiklabs-gcp-00-71d4c677d0cc",
   "region": "us-central1",
   "service": "nightshift",
-  "revision": "nightshift-00005-xil",
-  "image_digest": "sha256:d270c8e5ffc0ee4ec5aeea9dcd5e390b463fa296d91ebcdca51e9f8c6bc8c0a8",
-  "build_id": "d1328cb7-15b9-4f78-8106-aebe25d6837b",
+  "revision": "nightshift-00007-map",
+  "image_digest": "sha256:b9d9ef57e2525e22d57b6b12be3aa175e02b0a93c94c74d0ea0bcf36ed378dd1",
+  "build_id": "0fb9bf76-634c-401a-806b-e6731532fc88",
   "public": true,
   "runtime": {
     "cpu": 2,
@@ -40,9 +40,9 @@
   },
   "official_validator_verified": false,
   "previous_release": {
-    "revision": "nightshift-00003-lah",
-    "image_digest": "sha256:bcb37a2d3831e9b6a7b283b18f2053e9af976f27c11db119cd205d018e330950",
-    "build_id": "dab83326-39a6-4849-9212-bcd1babe6a10"
+    "revision": "nightshift-00005-xil",
+    "image_digest": "sha256:d270c8e5ffc0ee4ec5aeea9dcd5e390b463fa296d91ebcdca51e9f8c6bc8c0a8",
+    "build_id": "d1328cb7-15b9-4f78-8106-aebe25d6837b"
   },
   "tests_passed": 212,
   "chat": {
@@ -111,6 +111,11 @@
       "revision": "nightshift-00002-srz",
       "image_digest": "sha256:03fcfec740630b5f13c6df437ecb75550269aa06c628245ba760aa0fc7a80ddc",
       "build_id": "5cfb3bbc-a482-4d38-bb5b-a97b3b467ac9"
+    },
+    {
+      "revision": "nightshift-00003-lah",
+      "image_digest": "sha256:bcb37a2d3831e9b6a7b283b18f2053e9af976f27c11db119cd205d018e330950",
+      "build_id": "dab83326-39a6-4849-9212-bcd1babe6a10"
     }
   ],
   "dataset_verification": {
@@ -157,5 +162,35 @@
     "old_generation_returned_404": true,
     "downloads": 2,
     "fixed_read_returned_current_checkpoint": true
+  },
+  "default_solve_seconds": 90,
+  "maximum_solve_seconds": 300,
+  "budget90_verification": {
+    "revision": "nightshift-00007-map",
+    "default_seconds": 90,
+    "maximum_seconds": 300.0,
+    "frontend_matches_local_build": true,
+    "frontend_sha256": "e10775746160670f13b370451141fd081db17c4a032043d9fbc9ab6080785cb0",
+    "health": {
+      "ok": true,
+      "validation": "local",
+      "chat_configured": true,
+      "chat_provider": "vertex",
+      "chat_model": "gemini-3.8-flash"
+    },
+    "saved_run_survived": true,
+    "run_id": "be092727e4e04f54b49c073508c2cb35",
+    "solver_status": "OPTIMAL",
+    "elapsed_seconds": 14.85,
+    "score": 30,
+    "coverage": 100,
+    "export_verified": true,
+    "public_default_verified": true,
+    "public_frontend_verified": true,
+    "saved_run_survived_promotion": true,
+    "traffic_percent": 100,
+    "runtime_settings_preserved": true,
+    "api_tests_passed": 38,
+    "frontend_build_passed": true
   }
 }

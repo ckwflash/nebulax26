@@ -38,9 +38,11 @@ Hard closures forbid work/protection at a location for the whole selected week i
 
 ## Solver and public results
 
+Standard solves and previews use a 90-second budget. Improve allows up to five minutes. The solver stops early when it proves optimality; at the time limit, it retains the best complete, checked schedule found.
+
 ```sh
 uv run python -m trackaccess inspect --instance PS1/01_data
-uv run python -m trackaccess solve --scenario all --seconds 60 --out outputs
+uv run python -m trackaccess solve --scenario all --seconds 90 --out outputs
 uv run python -m trackaccess validate --submission outputs/A
 ```
 

@@ -254,7 +254,7 @@ export default function App() {
   }
   async function start(
     s: Scenario = scenario,
-    seconds = 60,
+    seconds = 90,
     isPreview = false,
     overrides: unknown[] = [],
   ) {
@@ -1225,7 +1225,7 @@ export default function App() {
                             <button
                               className="secondary"
                               disabled={busy}
-                              onClick={() => void start(s, 60, true)}
+                              onClick={() => void start(s, 90, true)}
                             >
                               Compute scenario {s}
                             </button>
@@ -1684,7 +1684,7 @@ export default function App() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              void start(scenario, 60, true, [
+              void start(scenario, 90, true, [
                 {
                   location_id: location,
                   week,

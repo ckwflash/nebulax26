@@ -123,7 +123,7 @@ class RunRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     instance_id: str = Field(pattern=r"^[a-f0-9]{16}$")
     scenario: Scenario
-    seconds: int = Field(default=60, ge=1, le=300)
+    seconds: int = Field(default=90, ge=1, le=300)
     baseline_id: str | None = None
     overrides: list[Override] = Field(default_factory=list, max_length=100)
     label: str = Field(default="", max_length=100)
