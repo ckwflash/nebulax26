@@ -1,0 +1,1 @@
+`scored_a.zip` preserves the closure-corrected A archive previously returned to the user. The subsequently reported score was 137.9, with 28 overrun days across three contracts, zero excess access and zero ECLO. Contract-weight aggregation reproduces this exactly: C006 85.4 + C010 45.5 + C014 7.0. See `test_scoring.py`. The official executable was not supplied.

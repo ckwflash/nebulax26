@@ -1,10 +1,7 @@
-// Spec section 13 — Reports. The submission bundle is real (/api/runs/{id}/export);
-// the document pack is listed by /api/reports and rendered per run by the service.
-
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { ReportEntry } from "../api/types";
-import { usePlan } from "../state/plan";
+import { available, usePlanState, usePlan } from "../state/plan";
 
 const FORMAT_PILL: Record<ReportEntry["format"], string> = {
   PDF: "pill p-crit",
@@ -27,7 +24,15 @@ function DocumentPack({ runId }: { runId: string }) {
     api
       .reports()
       .then((list) => alive && setCatalog(list))
-      .catch((e: unknown) => alive && setFailed(e instanceof Error ? e.message : "The report list could not be loaded."));
+      .catch(
+        (e: unknown) =>
+          alive &&
+          setFailed(
+            e instanceof Error
+              ? e.message
+              : "The report list could not be loaded.",
+          ),
+      );
     return () => {
       alive = false;
     };
@@ -38,27 +43,46 @@ function DocumentPack({ runId }: { runId: string }) {
     setMade((m) => ({ ...m, [key]: "working" }));
     try {
       const done = await api.generateReport(id, runId);
-      setMade((m) => ({ ...m, [key]: { url: done.download_url, at: done.generated_at } }));
+      setMade((m) => ({
+        ...m,
+        [key]: { url: done.download_url, at: done.generated_at },
+      }));
     } catch (e) {
-      setMade((m) => ({ ...m, [key]: { error: e instanceof Error ? e.message : "Generation failed." } }));
+      setMade((m) => ({
+        ...m,
+        [key]: { error: e instanceof Error ? e.message : "Generation failed." },
+      }));
     }
   };
 
   return (
-    <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
+    <div
+      className="card"
+      style={{
+        padding: "16px 18px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+      }}
+    >
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <span className="h2">Document pack</span>
-          <span className="small muted">Formatted reports for people who do not read CSVs</span>
+          <span className="small muted">
+            Formatted reports for people who do not read CSVs
+          </span>
         </div>
       </div>
 
       {failed && <div className="callout c-red">{failed}</div>}
-      {!catalog && !failed && <span className="small muted">Loading the report list…</span>}
+      {!catalog && !failed && (
+        <span className="small muted">Loading the report list…</span>
+      )}
       {catalog && (
         <span className="small muted">
-          Each report opens as a printable page for run <span className="mono">{runId}</span>. Use the browser's
-          Print → Save as PDF for a paper copy.
+          Each report opens as a printable page for run{" "}
+          <span className="mono">{runId}</span>. Use the browser's Print → Save
+          as PDF for a paper copy.
         </span>
       )}
 
@@ -79,14 +103,25 @@ function DocumentPack({ runId }: { runId: string }) {
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontWeight: 600, fontSize: 13.5 }}>{r.name}</span>
-              <span className={FORMAT_PILL[r.format] ?? "pill p-grey"}>{r.format}</span>
+              <span className={FORMAT_PILL[r.format] ?? "pill p-grey"}>
+                {r.format}
+              </span>
               <div style={{ flex: 1 }} />
               {state && typeof state === "object" && "url" in state ? (
-                <a className="btn btn-sm btn-primary" href={state.url} target="_blank" rel="noreferrer">
+                <a
+                  className="btn btn-sm btn-primary"
+                  href={state.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   Open report
                 </a>
               ) : (
-                <button className="btn btn-sm" onClick={() => generate(r.id)} disabled={state === "working"}>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => generate(r.id)}
+                  disabled={state === "working"}
+                >
                   {state === "working" ? "Generating…" : "Generate"}
                 </button>
               )}
@@ -103,7 +138,9 @@ function DocumentPack({ runId }: { runId: string }) {
               </span>
             )}
             {state && typeof state === "object" && "at" in state && (
-              <span className="small muted">Generated {new Date(state.at).toLocaleTimeString()}</span>
+              <span className="small muted">
+                Generated {new Date(state.at).toLocaleTimeString()}
+              </span>
             )}
           </div>
         );
@@ -114,13 +151,23 @@ function DocumentPack({ runId }: { runId: string }) {
 
 export function Reports() {
   const plan = usePlan();
+  const { run } = usePlanState();
   const v = plan.validation;
   const s = v.soft_scores;
 
   const bundle = [
-    { name: "SCHEDULE_ACCESS.csv", detail: `${v.detail?.nights_scheduled ?? "—"} access nights across ${v.total_activities} activities` },
-    { name: "SCHEDULE_OCCUPANCY.csv", detail: `every location and co-share group the plan books` },
-    { name: "RESULTS.csv", detail: `${plan.contracts.length} contracts with simulated completion and overrun` },
+    {
+      name: "SCHEDULE_ACCESS.csv",
+      detail: `${v.detail?.nights_scheduled ?? "—"} access nights across ${v.total_activities} activities`,
+    },
+    {
+      name: "SCHEDULE_OCCUPANCY.csv",
+      detail: `every location and co-share group the plan books`,
+    },
+    {
+      name: "RESULTS.csv",
+      detail: `${plan.contracts.length} contracts with simulated completion and overrun`,
+    },
   ];
 
   return (
@@ -129,26 +176,54 @@ export function Reports() {
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <h1 className="h1">Reports</h1>
           <span className="muted small">
-            Generated from the current run · scenario {plan.scenario} · {plan.solverStatus}
+            Generated from the current run · scenario {plan.scenario} ·{" "}
+            {plan.solverStatus}
           </span>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
-        <div className="card" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+          gap: 16,
+          alignItems: "start",
+        }}
+      >
+        <div
+          className="card"
+          style={{
+            padding: "16px 18px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ display: "flex", flexDirection: "column" }}>
               <span className="h2">Submission bundle</span>
-              <span className="small muted">The three official CSVs for this scenario, straight from the run</span>
+              <span className="small muted">
+                The three official CSVs for this scenario, straight from the run
+              </span>
             </div>
             <div style={{ flex: 1 }} />
             <span className={v.feasible ? "pill p-ok" : "pill p-crit"}>
-              {v.feasible ? "0 violations" : `${v.hard_violations.length} violations`}
+              {v.feasible
+                ? "0 violations"
+                : `${v.hard_violations.length} violations`}
             </span>
           </div>
 
           {bundle.map((b) => (
-            <div key={b.name} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
+            <div
+              key={b.name}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                fontSize: 13,
+              }}
+            >
               <span className="mono" style={{ fontWeight: 600, width: 210 }}>
                 {b.name}
               </span>
@@ -167,13 +242,15 @@ export function Reports() {
             <div>
               <span>Coverage</span>
               <span>
-                {v.coverage_percent}% · {v.completed_activities}/{v.total_activities} activities
+                {v.coverage_percent}% · {v.completed_activities}/
+                {v.total_activities} activities
               </span>
             </div>
             <div>
               <span>Overrun</span>
               <span>
-                {s.overrun_days_total} days across {s.contracts_overrunning} contracts
+                {s.overrun_days_total} days across {s.contracts_overrunning}{" "}
+                contracts
               </span>
             </div>
             <div>
@@ -188,28 +265,49 @@ export function Reports() {
             </div>
             <div>
               <span>Safety</span>
-              <span>{v.safety_verified ? "Witness verified" : "Unverified"}</span>
+              <span>
+                {v.safety_verified ? "Checks completed" : "Unverified"}
+              </span>
             </div>
           </div>
 
-          {/* The service 409s on an infeasible run, so don't offer a link that lands on a raw error page. */}
-          {v.feasible ? (
-            <a className="btn btn-primary" href={`/api/runs/${plan.runId}/export`}>
+          {available(run) ? (
+            <a
+              className="btn btn-primary"
+              href={`/api/runs/${plan.runId}/export`}
+            >
               Download submission bundle (.zip)
             </a>
           ) : (
-            <button className="btn btn-primary" disabled title="Only a feasible plan can be exported">
-              Download submission bundle (.zip)
-            </button>
+            <div className="callout c-red">
+              A completed feasible schedule is required for export.
+            </div>
           )}
           <span className="small muted">
-            {v.feasible
-              ? `Served by the planning service for run ${plan.runId}. Contains the three CSVs exactly as the validator reads them.`
-              : `This run has ${v.hard_violations.length} hard violation${v.hard_violations.length === 1 ? "" : "s"}${v.safety_verified ? "" : " and no verified safety witness"}, so it cannot be submitted. Re-solve with a longer budget or another scenario.`}
+            Served by the planning service for run {plan.runId}. Contains the
+            three CSVs exactly as the validator reads them.
           </span>
         </div>
 
-        <DocumentPack runId={plan.runId} />
+        <div style={{ display: "grid", gap: 16 }}>
+          {run?.status === "completed" && (
+            <DocumentPack key={run.id} runId={run.id} />
+          )}
+          <div className="card" style={{ padding: 18 }}>
+            <h2 className="h2">Run summary</h2>
+            <p>
+              Scenario {plan.scenario} · {plan.solverStatus}
+            </p>
+            <p className="small muted">
+              Local independent validation: {v.validation_authority}. Official
+              judging acceptance is separate.
+            </p>
+            <p className="small muted">
+              Risk and confidence indicators elsewhere in RailPlan are frontend
+              heuristics, not solver guarantees.
+            </p>
+          </div>
+        </div>
       </div>
     </>
   );

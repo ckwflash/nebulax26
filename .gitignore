@@ -8,3 +8,7 @@ __pycache__/
 .DS_Store
 *.pyc
 *.tsbuildinfo
+*.egg-info/
+release/
+testdata/results/*
+!testdata/results/scoring-fix/

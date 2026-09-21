@@ -109,6 +109,31 @@ class Store:
     def get(self, key):
         return self._read(key)[0]
 
+    def keys(self, prefix):
+        """List durable JSON records, never falling back to the local cache."""
+        self._path(prefix)
+        if self.bucket is not None:
+            try:
+                return sorted(blob.name[:-5] for blob in self.bucket.list_blobs(
+                    prefix=prefix.rstrip('/') + '/', timeout=10, retry=GCS_RETRY)
+                    if blob.name.endswith('.json'))
+            except GoogleAPIError as exc:
+                raise StorageError('The saved dataset library is unavailable. Please retry.') from exc
+        return sorted(str(path.relative_to(self.root))[:-5]
+                      for path in (self.root / prefix).rglob('*.json'))
+
+    def update(self, key, change):
+        """Apply a pure function under CAS; no side effects in change()."""
+        for _ in range(8):
+            value, version = self._read(key)
+            updated = change(copy.deepcopy(value))
+            try:
+                self._write(key, updated, version)
+                return updated
+            except Conflict:
+                continue
+        raise Conflict('The record changed repeatedly. Please retry.')
+
     def claim_run(self, run_id):
         key = f"runs/{run_id}"
         for _ in range(5):

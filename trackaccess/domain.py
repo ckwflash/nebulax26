@@ -170,6 +170,10 @@ class Instance:
         radius, mirror = self.buffer_rules[p.nature_of_activity]
         lo, hi = max(0, i - radius), min(len(sectors) - 1, j + radius)
         protection = span(lo, hi, bound)
+        # Non-live buffers reserve tunnel sectors, not their extra platforms.
+        # Live power isolation also closes platforms throughout the buffer.
+        if p.nature_of_activity != "Live":
+            protection = route | {loc for loc in protection if loc.startswith("SEC:")}
         if mirror:
             protection |= span(lo, hi, "WB" if bound == "EB" else "EB")
         if p.nature_of_activity == "Live":
@@ -177,12 +181,16 @@ class Instance:
             for other, rows in self.sectors.items():
                 if other == line:
                     continue
-                for row in rows:
+                for index, row in enumerate(rows):
                     ends = {row["from_station_id"], row["to_station_id"]}
                     if ends <= self.interchanges and ends & touched:
-                        for direction in ("EB", "WB"):
-                            protection.add(f"{row['sector_id']}:{direction}")
-                            protection |= {f"PLAT:{other}:{s}:{direction}" for s in ends}
+                        # Treat the connecting tunnel as Live work on the other
+                        # line too: its full buffer and both bounds lose power.
+                        for buffered in rows[max(0, index - radius):index + radius + 1]:
+                            for direction in ("EB", "WB"):
+                                protection.add(f"{buffered['sector_id']}:{direction}")
+                                protection |= {f"PLAT:{other}:{buffered[k]}:{direction}"
+                                               for k in ("from_station_id", "to_station_id")}
         return route, protection
 
     def _topological_order(self):
@@ -226,13 +234,18 @@ class Instance:
             start = max(1, self.week(a.planned_start_date), earliest.get(a.predecessor_activity_id, 0) + 1)
             earliest[aid] = start + a.total_accesses - 1
             days = max(0, (self.week_end(earliest[aid]) - p.planned_completion_date).days)
-            penalty += days * self.weight10(aid) / 10
             # A week is eligible only if its end is on/before the deadline.
             slots = max(0, (p.planned_completion_date - self.start).days // 7 + (1 if (p.planned_completion_date-self.start).days % 7 == 6 else 0) - max(1, self.week(a.planned_start_date)) + 1)
             required_eclo = max(0, 2 * (a.total_accesses - slots))
             eclo += required_eclo
             if days or required_eclo:
                 details.append({"activity_id": aid, "contract_number": a.contract_number, "standard_accesses": a.total_accesses, "available_weeks": slots, "minimum_overrun_days": days, "minimum_eclo": required_eclo, "deadline_feasible_with_eclo": 3 * slots >= 2 * a.total_accesses, "evidence_id": f"bound:{aid}"})
+        for cid, p in self.projects.items():
+            members = [aid for aid, a in self.activities.items() if a.contract_number == cid]
+            if members:
+                completion = self.week_end(max(earliest[aid] for aid in members))
+                late = max(0, (completion - p.planned_completion_date).days)
+                penalty += late * sum(self.weight10(aid) for aid in members) / 10
         return {"A": round(penalty, 1), "B": 5 * eclo, "minimum_b_eclo": eclo, "details": details, "note": "Analytical lower bounds; resources may increase the score. Local rule interpretation."}
 
 

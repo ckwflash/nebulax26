@@ -1,3 +1,5 @@
+> Current release (19 September): `nightshift-planning-v7` serves 100% of traffic with **4 vCPU / 4 solver threads / 4 GiB**. The remote upload frontend and planning workflows are integrated. Corrected local scores are **137.9 / 30 / 62.7** under `ps1-local-1.2`. Earlier verification sections below are historical. See [the current handoff](DEPLOYMENT_HANDOFF.md) and [deployment record](deployment.json).
+
 # Nightshift on Google Cloud Run
 
 The temporary public demo uses project `qwiklabs-gcp-00-71d4c677d0cc`, region `us-central1`. Its Qwiklabs lifetime is not guaranteed through judging. No automatic shutdown is scheduled.
@@ -8,8 +10,8 @@ The temporary public demo uses project `qwiklabs-gcp-00-71d4c677d0cc`, region `u
 - Artifact Registry repository: `nightshift`
 - Runtime service account: `nightshift-run@qwiklabs-gcp-00-71d4c677d0cc.iam.gserviceaccount.com`
 - Private state bucket: `qwiklabs-gcp-00-71d4c677d0cc-nightshift-state`
-- Runtime: 2 vCPU, 4 GiB, one warm instance, service maximum one, concurrency 20, port 8080, instance-based billing.
-- Solver: two threads, one simultaneous solve, four admitted jobs, default 90 seconds per solve and maximum 300 seconds with Improve.
+- Runtime: 4 vCPU, 4 GiB, one warm instance, service maximum one, concurrency 20, port 8080, instance-based billing.
+- Solver: four threads, one simultaneous solve, four admitted jobs, default 90 seconds per solve and maximum 300 seconds with Improve.
 - Chat: Vertex AI / Gemini 3.8 Flash, using the global Vertex endpoint and the attached runtime identity. No API key is deployed.
 
 Cloud Storage is authoritative when `NIGHTSHIFT_GCS_BUCKET` is set. Uploads and completed runs are acknowledged only after durable writes. Every running job has a 60-second ownership lease, renewed every 10 seconds with conditional object-generation writes. Lost ownership cancels the search; stale workers cannot overwrite a new owner. Polling an abandoned run recovers its last checked incumbent after the lease expires. Local development continues to use files.
@@ -28,7 +30,7 @@ Set `NIGHTSHIFT_CHAT_PROVIDER=evidence` through a new Cloud Run revision to disa
 
 The session uses the SDK at `/private/tmp/google-cloud-sdk/bin/gcloud` with `CLOUDSDK_CONFIG=/private/tmp/codex-gcloud-config`. These temporary paths may disappear after restart; use an accessible authenticated SDK for later maintenance.
 
-The `.gcloudignore` allowlist sends only 48 build inputs (about 888 KiB before compression), including public PS1 data and checked output fixtures. Local credentials, uploaded demand books and unrelated datasets are excluded. Cloud Build builds the multi-stage Dockerfile; deployment uses its immutable image digest. Runtime ADC credentials come from the attached service account.
+The `.gcloudignore` allowlist sends 76 build inputs (about 2.0 MiB before compression), including public PS1 data and checked output fixtures. Local credentials, uploaded demand books and unrelated datasets are excluded. Cloud Build builds the multi-stage Dockerfile; deployment uses its immutable image digest. Runtime ADC credentials come from the attached service account.
 
 Before an update, let current jobs finish when possible. Keep the previous working image digest for rollback. Conditional run ownership also guards replacement-instance recovery. Rollbacks must not delete the state bucket.
 
@@ -50,12 +52,12 @@ gcloud run services update nightshift --project=qwiklabs-gcp-00-71d4c677d0cc --r
 
 To stop the application completely, delete the Cloud Run service through the console or `gcloud run services delete nightshift` with the same project and region. Retaining the bucket and image repository preserves saved results but continues storage charges. Do not delete them unless those results are no longer needed.
 
-## Verification
+## Historical verification before the planning release
 
 The local suite passes 212 tests. The production frontend build, Worker compatibility typecheck and combined API/static routing pass. The GCS regression tests cover durable reads, storage outages, competing claims, lease renewal/expiry and rejection of stale updates. Hosted private checks passed for all three scenarios: A=25.2, B=30, C=25.2, each optimal in the local model with 100% workload coverage. ZIP upload, exact three-file exports, C006/A036 evidence and a hard-closure preview with an unchanged baseline all passed. The organiser's validator remains unavailable.
 
 
-## Release identifiers
+## Historical release identifiers
 
 - Service URL: `https://nightshift-717753975344.us-central1.run.app` (public access verified).
 - Image digest: `sha256:b9d9ef57e2525e22d57b6b12be3aa175e02b0a93c94c74d0ea0bcf36ed378dd1`.
@@ -117,3 +119,19 @@ The previous Vertex-enabled revision is `nightshift-00003-lah`, with image diges
 Standard solves and all previews now default to 90 seconds in the frontend, API and command-line solver. Improve retains its 300-second limit. The 38 API tests and production frontend build passed. The candidate revision accepted a request without an explicit budget as 90 seconds, solved public Scenario B to an optimal score of 30 with 100% coverage, and exported exactly the three required CSVs. Its frontend matched the locally verified build.
 
 Revision `nightshift-00007-map` now serves all public traffic. Anonymous checks confirmed the 90-second API default and updated frontend; completed schedules survived the replacement. Vertex, instance sizing and storage settings remain unchanged. Verification is recorded in `.nightshift/deployment/budget90-verification.json`. The previous revision `nightshift-00005-xil` remains available for rollback.
+
+## Planning workflows and remote frontend — 19 September 2026
+
+The release integrates the upload frontend from remote commit `edaea99dd3937a9d6b477a0df08f5955dad6d9a4`, durable plan adoption, atomic booking acceptance, progressive contractor assessments, five recovery strategies, explicit chat-preview adoption, and validated three-CSV reports. Linux `fcntl` is retained. Standard solves/previews use 90 seconds, Improve uses 300, and each five-option recovery shares 90 seconds. One solver job and four admitted jobs remain configured.
+
+Cloud Build `0ef8fe66-2dbd-49fc-91b3-d5da2546c477` built an immutable snapshot of the 76 allowlisted inputs. Image digest: `sha256:6364cce74e21ec3c532d71eb854fca0ded85a6c5fb269810523b607c88d577b5`. The revision first received no main-URL traffic; the final revision `nightshift-planning-v7` was promoted after checks passed, and all temporary tags were removed. Runtime size was raised to four vCPU and four solver threads at the user's request. Memory stays at 4 GiB, min/max one instance, concurrency 20, port 8080, with CPU allocated outside requests.
+
+Validation passed: 243 Python tests, the production frontend build, adapter/render/upload-state checks, and the corrected 30-case local dataset matrix. Hosted checks covered A/B/C, Vertex evidence, uploads, exact exports, approval and stale-write protection, assessment caching, counteroffers, atomic acceptance, rejection, inherited bookings, five policy comparisons, 300-second improvement and chat preview polling. The browser exercised the remote upload dialog, solve, explicit adoption/reload, Vertex explanations, recovery comparisons and report links; no browser errors were observed.
+
+Fresh four-thread public solves took 11.84 / 9.03 / 12.60 seconds for A/B/C in this run. The 108-activity C case reached OPTIMAL at 125.4 in 30.90 seconds. These are individual observations, not latency guarantees. The six hosted large/infeasible checks passed; infeasible exports returned 409.
+
+Completed schedules and approved plans survived revision replacement. Running test jobs finished before their temporary revisions were removed, so those attempts do not demonstrate forced interruption. A deliberately staged expired checkpoint then exercised recovery across a real replacement: five competing pollers resumed one batch, its completed child remained identical, the interrupted allocation was not reset, stale-generation writes failed, and all approved/completed versions survived. This is explicitly a **simulated interruption**. Details: `.nightshift/deployment/planning-recovery.json`; reproducible tool: `scripts/verify_planning_recovery.py`.
+
+The bucket still denies anonymous access (403), uses uniform access and enforced public-access prevention, and has no public IAM bindings. A bounded review of 500 release log entries found no 5xx responses, bearer tokens, private keys, API-key values or uploaded CSV-header patterns. It is not a comprehensive security audit. Post-promotion checks verified the live frontend bytes, Vertex configuration, four vCPU/four threads, saved versions, one warm instance, 100% traffic and absence of temporary tags.
+
+The older release `nightshift-00007-map` contains obsolete closure/scoring rules and lacks these workflows. Prefer the corrected image for redeployment. `nightshift-planning-v6` retains the same verified image and four-thread configuration as an operational rollback target. Manual shutdown controls above remain applicable; no automatic shutdown is scheduled. Official validator acceptance remains separate from these local-model and hosted integration checks.

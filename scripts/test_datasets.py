@@ -26,6 +26,12 @@ from trackaccess.validation import validate
 def check_result(case, scenario, instance, result, folder):
     expected = case["expected"][scenario]
     if not expected["feasible"]:
+        if expected.get('diagnostic_overrun'):
+            checked = validate(instance, Schedule(**result['schedule']))
+            assert not checked['feasible'] and checked['coverage_percent'] == 100
+            assert {v['rule'] for v in checked['hard_violations']} == {'planned_date'}
+            return {'score': None, 'bound': None, 'coverage': 100, 'optimal': False,
+                    'primary_optimal': False, 'proven_infeasible': True, 'diagnostic_overrun': True}
         assert result["solver_status"] == "INFEASIBLE", result["solver_status"]
         assert not result.get("schedule"), "An impossible instance returned a partial schedule"
         return {"score": None, "bound": result.get("model_bound"), "coverage": None, "optimal": False, "primary_optimal": False, "proven_infeasible": True}
@@ -37,6 +43,8 @@ def check_result(case, scenario, instance, result, folder):
     assert checked["coverage_percent"] == 100
     if "score" in expected:
         assert checked["score"] == expected["score"], f"Score {checked['score']} != independent expectation {expected['score']}"
+    if 'lower_bound' in expected:
+        assert checked['score'] >= expected['lower_bound']
     if result["solver_status"] == "OPTIMAL":
         assert result["model_bound"] == checked["score"], "Optimal score/bound disagree"
     # Check conservation directly as well as through the validator.
@@ -48,9 +56,11 @@ def check_result(case, scenario, instance, result, folder):
         assert 2 * job.total_accesses <= delivered[aid] <= 2 * job.total_accesses + 1
     if case["slug"] == "06_live_interchange":
         assert all(set(instance.affected_lines[a]) == {"X", "Y"} for a in instance.activities)
-        assert len(set(schedule.witness.values())) == 2
+        assert len({row.week for row in schedule.access}) == 2
         forged = schedule.model_copy(deep=True)
-        forged.witness = dict.fromkeys(forged.witness, 1)
+        for row in forged.access + forged.occupancy:
+            row.week = 1
+        forged.witness = {}
         assert "closure" in {v["rule"] for v in validate(instance, forged)["hard_violations"]}
     if case["slug"] == "05_predecessor_chain":
         for pred, successor in (("A501", "A502"), ("A502", "A503")):
@@ -99,11 +109,11 @@ def main():
     parser.add_argument("--seconds", type=int, default=60)
     parser.add_argument("--only", nargs="*", help="Optional dataset slug filter")
     parser.add_argument("--scenarios", nargs="+", choices=list("ABC"), default=list("ABC"))
-    parser.add_argument("--out", type=Path, help="Separate report folder for focused or longer-budget runs")
+    parser.add_argument("--out", type=Path, help="Report folder (default: .nightshift/test-runs/<local|hosted>)")
     args = parser.parse_args()
     manifest = json.loads((ROOT / "testdata/manifest.json").read_text())
     mode = "hosted" if args.url else "local"
-    dest = args.out or ROOT / "testdata/results" / mode
+    dest = args.out or ROOT / ".nightshift/test-runs" / mode
     report = {"mode": mode, "started_at": datetime.now(timezone.utc).isoformat(), "budget_seconds": args.seconds,
               "url": args.url, "local_solver_threads": int(os.getenv("NIGHTSHIFT_SOLVER_THREADS", "4")) if not args.url else None,
               "runs": []}
@@ -154,7 +164,7 @@ def main():
                     row["solver_status"] = result["solver_status"]
                     row["elapsed_seconds"] = result["elapsed_seconds"]
                     row.update(check_result(case, scenario, instance, result, output))
-                    if result.get("schedule"):
+                    if result.get("schedule") and result.get('validation', {}).get('feasible'):
                         if client:
                             download = client.get(f"/api/runs/{run_id}/export")
                             download.raise_for_status()

@@ -59,7 +59,9 @@ export function ambiguousNames(ids: string[]): Set<string> {
     set.add(p.line);
     lines.set(body, set);
   }
-  return new Set([...lines].filter(([, l]) => l.size > 1).map(([body]) => body));
+  return new Set(
+    [...lines].filter(([, l]) => l.size > 1).map(([body]) => body),
+  );
 }
 
 /** The span an activity works, e.g. start S15_S16 + end S16_S17 -> "S15–S17". */
@@ -82,7 +84,11 @@ export function weekStarting(horizonStart: string, week: number): Date {
   const start = new Date(horizonStart + "T00:00:00Z");
   return new Date(start.getTime() + (week - 1) * 7 * 86400000);
 }
-const DATE_FMT = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+const DATE_FMT = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+});
 export const shortDate = (d: Date) => DATE_FMT.format(d);
 
 /* ------------------------------------------------------------- views ------ */
@@ -114,6 +120,7 @@ export interface ActivityView {
   /** Nights actually scheduled, and how many of those are ECLO. */
   scheduledNights: number;
   ecloNights: number;
+  ecloWeeks: number[];
   eclo: boolean;
   ws: number;
   we: number;
@@ -190,13 +197,15 @@ export interface PlanModel {
   locations: LocationView[];
   /** "<location>|<week>" -> capacity row. */
   usage: Map<string, CapacityRow>;
+  closed: Set<string>;
   validation: ValidationReport;
   /** Busiest week by scheduled accesses — the default for night detail. */
   busiestWeek: number;
   activityTypes: string[];
 }
 
-const pct = (used: number, capacity: number) => (capacity > 0 ? (used / capacity) * 100 : 0);
+const pct = (used: number, capacity: number) =>
+  capacity > 0 ? (used / capacity) * 100 : used > 0 ? 100 : 0;
 
 /* --------------------------------------------------------- fragility ------ */
 
@@ -214,23 +223,38 @@ function fragility(input: {
   const { slack, alternatives, congestion, ecloNights, deps } = input;
 
   const slackPts = slack <= 0 ? 24 : slack === 1 ? 17 : slack === 2 ? 10 : 4;
-  const altPts = alternatives === 0 ? 25 : alternatives === 1 ? 19 : alternatives === 2 ? 12 : alternatives === 3 ? 6 : 2;
+  const altPts =
+    alternatives === 0
+      ? 25
+      : alternatives === 1
+        ? 19
+        : alternatives === 2
+          ? 12
+          : alternatives === 3
+            ? 6
+            : 2;
   const utilPts = Math.min(25, Math.round(congestion / 4));
   const ecloPts = ecloNights >= 2 ? 18 : ecloNights === 1 ? 10 : 2;
   const depPts = deps >= 3 ? 12 : deps === 2 ? 8 : deps === 1 ? 4 : 0;
 
-  const lvl = (p: number, hi: number, mid: number): RiskLevel => (p >= hi ? "high" : p >= mid ? "med" : "low");
+  const lvl = (p: number, hi: number, mid: number): RiskLevel =>
+    p >= hi ? "high" : p >= mid ? "med" : "low";
 
   const parts: FragPart[] = [
     {
       name: "Deadline slack",
-      value: slack <= 0 ? (slack === 0 ? "0 weeks" : `${slack} weeks`) : `${slack} week${slack === 1 ? "" : "s"}`,
+      value:
+        slack <= 0
+          ? slack === 0
+            ? "0 weeks"
+            : `${slack} weeks`
+          : `${slack} week${slack === 1 ? "" : "s"}`,
       bar: Math.round((slackPts / 24) * 100),
       level: lvl(slackPts, 17, 10),
       points: slackPts,
     },
     {
-      name: "Alternative viable periods",
+      name: "Suggested alternative periods",
       value: String(alternatives),
       bar: Math.round((altPts / 25) * 100),
       level: lvl(altPts, 19, 12),
@@ -245,7 +269,9 @@ function fragility(input: {
     },
     {
       name: "ECLO dependence",
-      value: ecloNights ? `${ecloNights} night${ecloNights === 1 ? "" : "s"}` : "None",
+      value: ecloNights
+        ? `${ecloNights} night${ecloNights === 1 ? "" : "s"}`
+        : "None",
       bar: Math.round((ecloPts / 18) * 100),
       level: lvl(ecloPts, 18, 10),
       points: ecloPts,
@@ -259,7 +285,10 @@ function fragility(input: {
     },
   ];
 
-  const score = Math.max(0, Math.min(100, slackPts + altPts + utilPts + ecloPts + depPts));
+  const score = Math.max(
+    0,
+    Math.min(100, slackPts + altPts + utilPts + ecloPts + depPts),
+  );
   return { score, parts };
 }
 
@@ -286,7 +315,16 @@ export function confidenceOf(input: {
   delayed: boolean;
   loc: string;
 }): Confidence {
-  const { frag, slack, alternatives: alts, congestion: cg, ecloNights, deps, delayed, loc } = input;
+  const {
+    frag,
+    slack,
+    alternatives: alts,
+    congestion: cg,
+    ecloNights,
+    deps,
+    delayed,
+    loc,
+  } = input;
   let s = 100 - Math.round(frag * 0.45);
   if (slack <= 0) s -= 18;
   else if (slack === 1) s -= 8;
@@ -302,48 +340,92 @@ export function confidenceOf(input: {
   s = Math.max(8, Math.min(96, s));
   const level: ConfLevel = s >= 70 ? "HIGH" : s >= 45 ? "MEDIUM" : "LOW";
   const reasons = [
-    slack <= 0 ? "No deadline slack" : slack === 1 ? "Low deadline slack (1 week)" : `${slack} weeks of deadline slack`,
-    alts === 0 ? "No viable alternative period" : alts === 1 ? "1 viable alternative period" : `${alts} viable alternative periods`,
+    slack <= 0
+      ? "No deadline slack"
+      : slack === 1
+        ? "Low deadline slack (1 week)"
+        : `${slack} weeks of deadline slack`,
+    alts === 0
+      ? "No viable alternative period"
+      : alts === 1
+        ? "1 viable alternative period"
+        : `${alts} viable alternative periods`,
     cg >= 90
       ? `High congestion at ${loc} (${Math.round(cg)}%)`
       : cg >= 70
         ? `Moderate congestion at ${loc} (${Math.round(cg)}%)`
         : `Spare capacity at ${loc} (${Math.round(cg)}%)`,
   ];
-  if (ecloNights) reasons.push(`Depends on ${ecloNights} ECLO night${ecloNights === 1 ? "" : "s"}`);
+  if (ecloNights)
+    reasons.push(
+      `Depends on ${ecloNights} ECLO night${ecloNights === 1 ? "" : "s"}`,
+    );
   if (deps >= 2) reasons.push(`${deps} scheduling dependencies`);
   return {
     score: s,
     level,
     reasons,
-    cls: level === "HIGH" ? "pill p-ok" : level === "MEDIUM" ? "pill p-warn" : "pill p-crit",
-    color: level === "HIGH" ? "#1e8a5a" : level === "MEDIUM" ? "#b7791f" : "#c1352c",
+    cls:
+      level === "HIGH"
+        ? "pill p-ok"
+        : level === "MEDIUM"
+          ? "pill p-warn"
+          : "pill p-crit",
+    color:
+      level === "HIGH" ? "#1e8a5a" : level === "MEDIUM" ? "#b7791f" : "#c1352c",
   };
 }
 
-export const riskOf = (frag: number): RiskLevel => (frag >= 65 ? "high" : frag >= 40 ? "med" : "low");
+export const riskOf = (frag: number): RiskLevel =>
+  frag >= 65 ? "high" : frag >= 40 ? "med" : "low";
 
 /* ------------------------------------------------------------ builder ----- */
 
-export function buildPlan(instance: InstanceSummary, run: Run): PlanModel | null {
+export function buildPlan(
+  instance: InstanceSummary,
+  run: Run,
+): PlanModel | null {
   if (!run.schedule || !run.validation) return null;
   const { schedule, validation } = run;
 
   const weeks = Array.from({ length: instance.horizon_weeks }, (_, i) => i + 1);
-  const lineName = new Map(instance.lines.map((l) => [l.line_code, l.line_name.replace(/^Line\s+/i, "")]));
+  const lineName = new Map(
+    instance.lines.map((l) => [
+      l.line_code,
+      l.line_name.replace(/^Line\s+/i, ""),
+    ]),
+  );
   const capacityOf = new Map(instance.locations.map((l) => [l.id, l.capacity]));
 
   const ambiguous = ambiguousNames(instance.locations.map((l) => l.id));
 
   const usage = new Map<string, CapacityRow>();
-  for (const row of validation.capacity) usage.set(`${row.location_id}|${row.week}`, row);
+  const overrides = new Map(
+    (run.overrides ?? []).map((o) => [`${o.location_id}|${o.week}`, o]),
+  );
+  for (const loc of instance.locations)
+    for (const week of weeks) {
+      const key = `${loc.id}|${week}`;
+      const o = overrides.get(key);
+      usage.set(key, {
+        location_id: loc.id,
+        week,
+        used: 0,
+        capacity: o?.closed ? 0 : (o?.capacity ?? loc.capacity),
+        excess: 0,
+        evidence_id: `capacity:${key}`,
+      });
+    }
+  for (const row of validation.capacity)
+    usage.set(`${row.location_id}|${row.week}`, row);
 
   // Peak utilisation per location across the horizon.
   const peaks = new Map<string, { peak: number; week: number | null }>();
-  for (const row of validation.capacity) {
+  for (const row of usage.values()) {
     const p = pct(row.used, row.capacity);
     const seen = peaks.get(row.location_id);
-    if (!seen || p > seen.peak) peaks.set(row.location_id, { peak: p, week: row.week });
+    if (!seen || p > seen.peak)
+      peaks.set(row.location_id, { peak: p, week: row.week });
   }
   const locations: LocationView[] = instance.locations.map((l) => ({
     id: l.id,
@@ -379,8 +461,12 @@ export function buildPlan(instance: InstanceSummary, run: Run): PlanModel | null
     }
   }
 
-  const projectOf = new Map(instance.projects.map((p) => [p.contract_number, p]));
-  const resultOf = new Map(validation.contracts.map((c) => [c.contract_number, c]));
+  const projectOf = new Map(
+    instance.projects.map((p) => [p.contract_number, p]),
+  );
+  const resultOf = new Map(
+    validation.contracts.map((c) => [c.contract_number, c]),
+  );
 
   const successors = new Map<string, string[]>();
   for (const a of instance.activities) {
@@ -391,19 +477,32 @@ export function buildPlan(instance: InstanceSummary, run: Run): PlanModel | null
   }
 
   const finishOf = new Map<string, number>();
-  for (const [id, rows] of accessByActivity) finishOf.set(id, Math.max(...rows.map((r) => r.week)));
+  for (const [id, rows] of accessByActivity)
+    finishOf.set(id, Math.max(...rows.map((r) => r.week)));
 
   const contracts: ContractView[] = instance.projects.map((p) => {
     const result = resultOf.get(p.contract_number);
-    const members = instance.activities.filter((a) => a.contract_number === p.contract_number);
-    const deadlineWeek = weekOfDate(instance.horizon_start, p.planned_completion_date);
+    const members = instance.activities.filter(
+      (a) => a.contract_number === p.contract_number,
+    );
+    const deadlineWeek = weekOfDate(
+      instance.horizon_start,
+      p.planned_completion_date,
+    );
     const projectedWeek = result?.completion_week ?? 0;
     const overrunDays = result?.overrun_days ?? 0;
     const slack = deadlineWeek - projectedWeek;
     const contractEclo = members.some((m) =>
       (accessByActivity.get(m.activity_id) ?? []).some((r) => r.eclo === 1),
     );
-    const status = overrunDays > 0 ? "Projected late" : slack <= 0 ? "At risk" : contractEclo ? "ECLO dependent" : "On track";
+    const status =
+      overrunDays > 0
+        ? "Projected late"
+        : slack <= 0
+          ? "At risk"
+          : contractEclo
+            ? "ECLO dependent"
+            : "On track";
     return {
       id: p.contract_number,
       priority: p.contract_priority,
@@ -430,7 +529,9 @@ export function buildPlan(instance: InstanceSummary, run: Run): PlanModel | null
     const p = projectOf.get(a.contract_number)!;
     const c = contractOf.get(a.contract_number)!;
     const rows = accessByActivity.get(a.activity_id) ?? [];
-    const activityWeeks = [...new Set(rows.map((r) => r.week))].sort((x, y) => x - y);
+    const activityWeeks = [...new Set(rows.map((r) => r.week))].sort(
+      (x, y) => x - y,
+    );
     const ecloNights = rows.filter((r) => r.eclo === 1).length;
     const start = parseLocation(a.start_location_id);
 
@@ -442,21 +543,29 @@ export function buildPlan(instance: InstanceSummary, run: Run): PlanModel | null
         if (row) congestion = Math.max(congestion, pct(row.used, row.capacity));
       }
       // A location with no work in those weeks still has a standing peak.
-      if (!activityWeeks.length) congestion = Math.max(congestion, peaks.get(loc)?.peak ?? 0);
+      if (!activityWeeks.length)
+        congestion = Math.max(congestion, peaks.get(loc)?.peak ?? 0);
     }
 
     // Weeks it could move to on capacity and precedence grounds alone.
-    const predFinish = a.predecessor_activity_id ? (finishOf.get(a.predecessor_activity_id) ?? 0) : 0;
+    const predFinish = a.predecessor_activity_id
+      ? (finishOf.get(a.predecessor_activity_id) ?? 0)
+      : 0;
     const altWeeks: number[] = [];
     const blockedWeeks: number[] = [];
     for (const w of weeks) {
       if (w < a.start_week || w <= predFinish) continue;
       if (activityWeeks.includes(w)) continue;
-      const roomy = a.route.every((loc) => {
-        const row = usage.get(`${loc}|${w}`);
-        const cap = capacityOf.get(loc) ?? 0;
-        return row ? row.used < row.capacity : cap > 0;
-      });
+      const closed = a.protected.some(
+        (loc) => overrides.get(`${loc}|${w}`)?.closed,
+      );
+      const roomy =
+        !closed &&
+        a.route.every((loc) => {
+          const row = usage.get(`${loc}|${w}`);
+          const cap = capacityOf.get(loc) ?? 0;
+          return row ? row.used < row.capacity : cap > 0;
+        });
       (roomy ? altWeeks : blockedWeeks).push(w);
     }
     const alternatives = altWeeks.length;
@@ -493,6 +602,7 @@ export function buildPlan(instance: InstanceSummary, run: Run): PlanModel | null
       nights: a.total_accesses,
       scheduledNights: rows.length,
       ecloNights,
+      ecloWeeks: rows.filter((r) => r.eclo === 1).map((r) => r.week),
       eclo: ecloNights > 0,
       ws: activityWeeks[0] ?? a.start_week,
       we: activityWeeks[activityWeeks.length - 1] ?? a.start_week,
@@ -530,14 +640,19 @@ export function buildPlan(instance: InstanceSummary, run: Run): PlanModel | null
   });
 
   const perWeek = new Map<number, number>();
-  for (const row of schedule.access) perWeek.set(row.week, (perWeek.get(row.week) ?? 0) + 1);
+  for (const row of schedule.access)
+    perWeek.set(row.week, (perWeek.get(row.week) ?? 0) + 1);
   const busiestWeek =
-    [...perWeek.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ?? weeks[0] ?? 1;
+    [...perWeek.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ??
+    weeks[0] ??
+    1;
 
   const today = new Date();
   const start = new Date(instance.horizon_start + "T00:00:00Z");
-  const elapsed = Math.floor((today.getTime() - start.getTime()) / (7 * 86400000)) + 1;
-  const nowWeek = elapsed >= 1 && elapsed <= instance.horizon_weeks ? elapsed : null;
+  const elapsed =
+    Math.floor((today.getTime() - start.getTime()) / (7 * 86400000)) + 1;
+  const nowWeek =
+    elapsed >= 1 && elapsed <= instance.horizon_weeks ? elapsed : null;
 
   return {
     instanceId: instance.id,
@@ -549,14 +664,19 @@ export function buildPlan(instance: InstanceSummary, run: Run): PlanModel | null
     nowWeek,
     scenario: run.scenario,
     runId: run.id,
-    solverStatus: run.solver_status,
+    solverStatus: run.solver_status ?? run.status,
     activities,
     contracts,
     locations,
     usage,
+    closed: new Set(
+      [...overrides].filter(([, o]) => o.closed).map(([key]) => key),
+    ),
     validation,
     busiestWeek,
-    activityTypes: [...new Set(instance.activities.map((a) => a.activity_type))].sort(),
+    activityTypes: [
+      ...new Set(instance.activities.map((a) => a.activity_type)),
+    ].sort(),
   };
 }
 

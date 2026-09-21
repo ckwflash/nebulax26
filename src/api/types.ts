@@ -75,7 +75,13 @@ export interface InstanceSummary {
   locations: LocationRow[];
   lines: LineRow[];
   stations: StationRow[];
-  bounds: { A: number; B: number; minimum_b_eclo: number; details: BoundDetail[]; note: string };
+  bounds: {
+    A: number;
+    B: number;
+    minimum_b_eclo: number;
+    details: BoundDetail[];
+    note: string;
+  };
 }
 
 export interface AccessRow {
@@ -167,7 +173,11 @@ export interface ValidationReport {
   capacity: CapacityRow[];
   eclo_windows: Record<string, [number, number]>;
   sharing_saved: number;
-  detail?: { capacity_hotspots: CapacityRow[]; nights_scheduled: number; eclo_nights: number };
+  detail?: {
+    capacity_hotspots: CapacityRow[];
+    nights_scheduled: number;
+    eclo_nights: number;
+  };
 }
 
 export interface Override {
@@ -181,7 +191,7 @@ export interface RunDiff {
   changed_activities: string[];
   removed_accesses: number;
   added_accesses: number;
-  score_delta: number;
+  score_delta: number | null;
 }
 
 export interface Run {
@@ -195,35 +205,66 @@ export interface Run {
   baseline_id: string | null;
   schedule: ScheduleDoc | null;
   validation: ValidationReport | null;
-  solver_status: string;
-  elapsed_seconds: number;
+  solver_status?: string;
+  elapsed_seconds?: number;
   model_bound: number | null;
   message?: string;
   error?: string;
   diff?: RunDiff;
-  /** Set on recovery runs: what the search was steered by. The score is still official. */
-  weights?: RecoveryWeights | null;
-}
-
-/** 0..10 each; 5 reproduces the official objective. */
-export interface RecoveryWeights {
-  churn: number;
-  deadlines: number;
-  passengers: number;
-  priority1: number;
-}
-
-export type Philosophy = "churn" | "deadlines" | "passengers" | "p1" | "custom";
-
-export interface RecoveryBatch {
-  id: string;
-  status: "running" | "completed";
-  results: { philosophy: Philosophy; run: Run }[];
+  bookings?: Booking[];
+  philosophy?: Philosophy | null;
+  optimization?: {
+    philosophy: Philosophy;
+    weights: Weights | null;
+    proven_optimal: boolean;
+    stages: {
+      name: string;
+      status: string;
+      value: number | null;
+      bound: number | null;
+    }[];
+  };
 }
 
 export interface DemoPayload {
   instance: InstanceSummary;
   run: Run;
+}
+
+export interface DatasetEntry {
+  id: string;
+  name: string;
+  created_at: string | null;
+  updated_at: string | null;
+  activities: number;
+  contracts: number;
+  horizon_weeks: number;
+  total_workload: number;
+}
+export interface SavedRun {
+  id: string;
+  instance_id: string;
+  scenario: ScenarioId;
+  status: Run["status"];
+  label: string;
+  created_at: string;
+  has_schedule: boolean;
+  feasible: boolean;
+  score: number | null;
+  solver_status: string | null;
+  error?: string | null;
+  message?: string | null;
+}
+export interface DatasetHistory {
+  instance_id: string;
+  versions: SavedRun[];
+  latest: Partial<Record<ScenarioId, Run>>;
+}
+export interface ScenarioBatch {
+  id: string;
+  instance_id: string;
+  status: Run["status"];
+  children: Run[];
 }
 
 /** conversation.py emits {id, title, detail} plus the ids the row came from. */
@@ -243,7 +284,7 @@ export interface ChatReply {
   mode: string;
   notice?: string | null;
   run_id: string;
-  preview?: unknown;
+  preview?: Run | null;
   tool?: string;
 }
 
@@ -253,6 +294,75 @@ export interface HealthReply {
   chat_configured: boolean;
   chat_provider: string;
   chat_model: string | null;
+}
+
+export type Philosophy = "churn" | "deadlines" | "passengers" | "p1" | "custom";
+export interface Weights {
+  churn: number;
+  deadlines: number;
+  passengers: number;
+  priority1: number;
+}
+export interface Booking {
+  request_id: string;
+  activity_id: string;
+  week_from: number;
+  week_to: number;
+}
+export interface ApprovedPlan {
+  instance_id: string;
+  approved_run_id: string | null;
+  revision: number;
+  commitments: Booking[];
+  run: Run | null;
+}
+export interface RecoveryBatch {
+  id: string;
+  status: Run["status"];
+  baseline_id: string;
+  remaining_seconds: number;
+  results: { philosophy: Philosophy; run: Run; policy: { label: string; scenario: ScenarioId; guarantees: string[]; objectives: string[] } }[];
+  error?: string;
+}
+export interface ContractorRequest {
+  id: string;
+  instance_id: string;
+  contract_number: string;
+  activity_id: string;
+  location_id: string;
+  week_from: number;
+  week_to: number;
+  reason: string;
+  contractor: string;
+  status: "pending" | "countered" | "accepted" | "rejected";
+  assessment_id: string | null;
+  counteroffer_run_id?: string;
+  accepted_run_id?: string;
+}
+export interface Assessment {
+  id: string;
+  status: Run["status"];
+  baseline_id: string;
+  plan_revision: number;
+  stale: boolean;
+  capacity_before: number | null;
+  capacity_after: number | null;
+  displaced: {
+    activity_id: string;
+    contract_number: string;
+    effect: string;
+    priority: number;
+  }[];
+  options: {
+    kind: "REQUESTED" | "ALTERNATIVE";
+    run_id: string;
+    week_from: number;
+    week_to: number;
+    feasible: boolean;
+    run: Run;
+  }[];
+  draft_response: string;
+  error?: string;
 }
 
 /** GET /api/reports — one entry of the document-pack catalogue. */
@@ -270,47 +380,3 @@ export interface ReportGenerated {
   download_url: string;
   generated_at: string;
 }
-
-export type RequestStatus = "pending" | "accepted" | "rejected" | "countered";
-
-/** POST/GET /api/requests — a contractor asking for access the plan did not give them. */
-export interface AccessRequest {
-  id: string;
-  instance_id: string;
-  contract_number: string;
-  contractor: string;
-  request: string;
-  location_id: string;
-  week_from: number;
-  week_to: number;
-  reason: string;
-  status: RequestStatus;
-  received_at: string;
-  assessment: { baseline_id: string; created_at: string } | null;
-}
-
-export type Tone = "ok" | "warn" | "crit";
-
-export interface RequestOption {
-  kind: "REQUESTED" | "ALTERNATIVE";
-  week_from: number;
-  week_to: number;
-  run_id: string;
-  impact: "HIGH" | "MEDIUM" | "LOW" | "NONE" | "BENEFICIAL";
-  score_before: number;
-  score_after: number | null;
-  points: { tone: "ok" | "warn" | "bad"; text: string }[];
-}
-
-export type RequestAssessment =
-  | { status: "running"; done: number; total: number }
-  | {
-      status: "completed";
-      location_id: string;
-      capacity_before: number;
-      capacity_after: number;
-      tiles: { label: string; value: string; tone: Tone; note: string }[];
-      displaced: { activity_id: string; contract_number: string; priority: number; effect: string; tone: Tone }[];
-      options: RequestOption[];
-      draft_response: string;
-    };

@@ -87,6 +87,7 @@ def _page(title, instance, run, body):
 <h1>{escape(title)}</h1>
 <div class="meta">{escape(instance.name)} · Scenario {escape(run['scenario'])} · {escape(status)} · run <span class="mono">{escape(run['id'])}</span>
  · horizon {instance.start:%d %b %Y}, {instance.weeks} weeks · generated {date.today():%d %b %Y}</div>
+<p class="note">Local validation · rule {escape(str(v["rule_version"]))}. Official judging acceptance is separate.</p>
 <div class="noprint note">Use your browser's Print → Save as PDF for a paper copy.</div>
 {banner}{body}</body></html>"""
 

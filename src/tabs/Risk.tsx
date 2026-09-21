@@ -13,9 +13,11 @@ const HEAT_LEGEND: [string, string][] = [
   ["#e2836a", "Fragile — one option at most"],
   ["#c1352c", "Critical — nowhere to move"],
   ["#f2f4f7", "No work scheduled"],
+  ["#64748b", "Closed — unavailable"],
 ];
 
 function heatColour(v: number) {
+  if (v === -1) return "#64748b";
   if (v === 0) return "#f2f4f7";
   if (v >= 85) return "#c1352c";
   if (v >= 65) return "#e2836a";
@@ -73,6 +75,7 @@ export function Risk({ go }: { go: (t: TabId) => void }) {
   const list = sorted.slice(0, more ? 12 : 4);
 
   const cell = (locId: string, w: number) => {
+    if (plan.closed.has(`${locId}|${w}`)) return { v: -1, label: "closed — unavailable", ids: [] as string[] };
     const acts = (model.carrying.get(locId) ?? []).filter((x) => x.weeks.includes(w));
     if (!acts.length) return { v: 0, label: "no work scheduled", ids: [] as string[] };
     const mx = Math.max(...acts.map((x) => x.frag));
@@ -116,7 +119,7 @@ export function Risk({ go }: { go: (t: TabId) => void }) {
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <h1 className="h1">Risk &amp; Resilience</h1>
+          <h1 className="h1">Risk &amp; Resilience</h1><span className="small muted">Fragility and confidence are frontend heuristics. Alternative weeks remain suggestions until solver-checked.</span>
           <span className="muted small">
             Fragility intelligence · how much of scenario {plan.scenario} survives losing a single access night · every
             score shows its drivers

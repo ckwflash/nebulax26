@@ -1,69 +1,1319 @@
 {
   "instance_id": "4614ef3b6b98b084",
   "solver_status": "OPTIMAL",
-  "elapsed_seconds": 2.76,
-  "solutions": 30,
-  "model_bound": 25.2,
+  "elapsed_seconds": 3.81,
+  "solutions": 49,
+  "model_bound": 137.9,
   "validation": {
     "scenario": "A",
     "feasible": true,
     "structurally_valid": true,
     "safety_verified": true,
     "validation_authority": "local",
-    "rule_version": "ps1-local-1.0",
+    "rule_version": "ps1-local-1.2",
     "hard_violations": [],
     "warnings": [],
-    "score": 25.2,
+    "score": 137.9,
     "coverage_percent": 100.0,
     "completed_activities": 54,
     "total_activities": 54,
     "soft_scores": {
-      "priority_weighted_score": 25.2,
-      "overrun_days_total": 21,
-      "contracts_overrunning": 2,
+      "scenario": "A",
+      "priority_weighted_score": 137.9,
+      "overrun_days_total": 28,
+      "contracts_overrunning": 3,
+      "earliness_days_total": 63,
       "priority_overrun": {
         "1": 0,
         "2": 0,
-        "3": 21
+        "3": 28
       },
       "excess_access_nights_total": 0,
-      "eclo_nights_total": 0
+      "eclo_nights_total": 0,
+      "objective_score": 137.9,
+      "formula_version": "ps1-local-1.2"
+    },
+    "detail": {
+      "capacity_hotspots": [
+        {
+          "location_id": "PLAT:ALP:H01:EB",
+          "week": 9,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:EB:9"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:EB",
+          "week": 10,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:EB:10"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:EB",
+          "week": 16,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:EB:16"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:EB",
+          "week": 17,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:EB:17"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:EB",
+          "week": 18,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:EB:18"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:EB",
+          "week": 21,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:EB:21"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:EB",
+          "week": 23,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:EB:23"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 2,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:2"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 3,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:3"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 4,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:4"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 5,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:5"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 6,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:6"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 7,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:7"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 8,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:8"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 9,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:9"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 10,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:10"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 11,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:11"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 12,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:12"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 13,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:13"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 14,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:14"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 15,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:15"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 17,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:17"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 18,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:18"
+        },
+        {
+          "location_id": "PLAT:ALP:H01:WB",
+          "week": 25,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H01:WB:25"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:EB",
+          "week": 13,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:EB:13"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:EB",
+          "week": 14,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:EB:14"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:EB",
+          "week": 17,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:EB:17"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:EB",
+          "week": 18,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:EB:18"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:EB",
+          "week": 21,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:EB:21"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:EB",
+          "week": 23,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:EB:23"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:WB",
+          "week": 2,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:WB:2"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:WB",
+          "week": 3,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:WB:3"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:WB",
+          "week": 4,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:WB:4"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:WB",
+          "week": 5,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:WB:5"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:WB",
+          "week": 6,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:WB:6"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:WB",
+          "week": 7,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:WB:7"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:WB",
+          "week": 8,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:WB:8"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:WB",
+          "week": 9,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:WB:9"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:WB",
+          "week": 10,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:WB:10"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:WB",
+          "week": 13,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:WB:13"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:WB",
+          "week": 14,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:WB:14"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:WB",
+          "week": 18,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:WB:18"
+        },
+        {
+          "location_id": "PLAT:ALP:H02:WB",
+          "week": 19,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:ALP:H02:WB:19"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 4,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:4"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 5,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:5"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 6,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:6"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 7,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:7"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 8,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:8"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 9,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:9"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 10,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:10"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 11,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:11"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 12,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:12"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 13,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:13"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 14,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:14"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 15,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:15"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 16,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:16"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 17,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:17"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 18,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:18"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 19,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:19"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 20,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:20"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 22,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:22"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 23,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:23"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 24,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:24"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 25,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:25"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 26,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:26"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 27,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:27"
+        },
+        {
+          "location_id": "PLAT:BET:H01:EB",
+          "week": 28,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:EB:28"
+        },
+        {
+          "location_id": "PLAT:BET:H01:WB",
+          "week": 2,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:WB:2"
+        },
+        {
+          "location_id": "PLAT:BET:H01:WB",
+          "week": 3,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:WB:3"
+        },
+        {
+          "location_id": "PLAT:BET:H01:WB",
+          "week": 4,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:WB:4"
+        },
+        {
+          "location_id": "PLAT:BET:H01:WB",
+          "week": 5,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:WB:5"
+        },
+        {
+          "location_id": "PLAT:BET:H01:WB",
+          "week": 6,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:WB:6"
+        },
+        {
+          "location_id": "PLAT:BET:H01:WB",
+          "week": 7,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:WB:7"
+        },
+        {
+          "location_id": "PLAT:BET:H01:WB",
+          "week": 8,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:WB:8"
+        },
+        {
+          "location_id": "PLAT:BET:H01:WB",
+          "week": 29,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H01:WB:29"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 4,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:4"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 5,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:5"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 6,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:6"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 7,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:7"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 8,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:8"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 9,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:9"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 10,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:10"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 11,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:11"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 12,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:12"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 13,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:13"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 14,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:14"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 15,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:15"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 16,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:16"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 17,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:17"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 18,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:18"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 19,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:19"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 20,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:20"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 22,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:22"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 23,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:23"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 24,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:24"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 25,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:25"
+        },
+        {
+          "location_id": "PLAT:BET:H02:EB",
+          "week": 26,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:EB:26"
+        },
+        {
+          "location_id": "PLAT:BET:H02:WB",
+          "week": 2,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:WB:2"
+        },
+        {
+          "location_id": "PLAT:BET:H02:WB",
+          "week": 3,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:WB:3"
+        },
+        {
+          "location_id": "PLAT:BET:H02:WB",
+          "week": 4,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:WB:4"
+        },
+        {
+          "location_id": "PLAT:BET:H02:WB",
+          "week": 5,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:WB:5"
+        },
+        {
+          "location_id": "PLAT:BET:H02:WB",
+          "week": 6,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:WB:6"
+        },
+        {
+          "location_id": "PLAT:BET:H02:WB",
+          "week": 7,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:WB:7"
+        },
+        {
+          "location_id": "PLAT:BET:H02:WB",
+          "week": 8,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:WB:8"
+        },
+        {
+          "location_id": "PLAT:BET:H02:WB",
+          "week": 9,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:WB:9"
+        },
+        {
+          "location_id": "PLAT:BET:H02:WB",
+          "week": 10,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:WB:10"
+        },
+        {
+          "location_id": "PLAT:BET:H02:WB",
+          "week": 11,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:WB:11"
+        },
+        {
+          "location_id": "PLAT:BET:H02:WB",
+          "week": 12,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:WB:12"
+        },
+        {
+          "location_id": "PLAT:BET:H02:WB",
+          "week": 29,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:PLAT:BET:H02:WB:29"
+        },
+        {
+          "location_id": "SEC:ALP:H01_H02:EB",
+          "week": 17,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:ALP:H01_H02:EB:17"
+        },
+        {
+          "location_id": "SEC:ALP:H01_H02:EB",
+          "week": 18,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:ALP:H01_H02:EB:18"
+        },
+        {
+          "location_id": "SEC:ALP:H01_H02:EB",
+          "week": 21,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:ALP:H01_H02:EB:21"
+        },
+        {
+          "location_id": "SEC:ALP:H01_H02:EB",
+          "week": 23,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:ALP:H01_H02:EB:23"
+        },
+        {
+          "location_id": "SEC:ALP:H01_H02:WB",
+          "week": 2,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:ALP:H01_H02:WB:2"
+        },
+        {
+          "location_id": "SEC:ALP:H01_H02:WB",
+          "week": 3,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:ALP:H01_H02:WB:3"
+        },
+        {
+          "location_id": "SEC:ALP:H01_H02:WB",
+          "week": 4,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:ALP:H01_H02:WB:4"
+        },
+        {
+          "location_id": "SEC:ALP:H01_H02:WB",
+          "week": 5,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:ALP:H01_H02:WB:5"
+        },
+        {
+          "location_id": "SEC:ALP:H01_H02:WB",
+          "week": 6,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:ALP:H01_H02:WB:6"
+        },
+        {
+          "location_id": "SEC:ALP:H01_H02:WB",
+          "week": 7,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:ALP:H01_H02:WB:7"
+        },
+        {
+          "location_id": "SEC:ALP:H01_H02:WB",
+          "week": 8,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:ALP:H01_H02:WB:8"
+        },
+        {
+          "location_id": "SEC:ALP:H01_H02:WB",
+          "week": 9,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:ALP:H01_H02:WB:9"
+        },
+        {
+          "location_id": "SEC:ALP:H01_H02:WB",
+          "week": 10,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:ALP:H01_H02:WB:10"
+        },
+        {
+          "location_id": "SEC:ALP:H01_H02:WB",
+          "week": 13,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:ALP:H01_H02:WB:13"
+        },
+        {
+          "location_id": "SEC:ALP:H01_H02:WB",
+          "week": 14,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:ALP:H01_H02:WB:14"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 4,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:4"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 5,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:5"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 6,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:6"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 7,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:7"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 8,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:8"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 9,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:9"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 10,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:10"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 11,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:11"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 12,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:12"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 13,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:13"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 14,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:14"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 15,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:15"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 16,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:16"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 17,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:17"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 18,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:18"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 19,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:19"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 20,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:20"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 22,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:22"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 23,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:23"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 24,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:24"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 25,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:25"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:EB",
+          "week": 26,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:EB:26"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:WB",
+          "week": 2,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:WB:2"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:WB",
+          "week": 3,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:WB:3"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:WB",
+          "week": 4,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:WB:4"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:WB",
+          "week": 5,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:WB:5"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:WB",
+          "week": 6,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:WB:6"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:WB",
+          "week": 7,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:WB:7"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:WB",
+          "week": 8,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:WB:8"
+        },
+        {
+          "location_id": "SEC:BET:H01_H02:WB",
+          "week": 29,
+          "used": 1,
+          "capacity": 1,
+          "excess": 0,
+          "evidence_id": "capacity:SEC:BET:H01_H02:WB:29"
+        }
+      ],
+      "nights_scheduled": 192,
+      "eclo_nights": 0
     },
     "contracts": [
       {
         "contract_number": "C001",
-        "completion_week": 22,
-        "simulated_completion_date": "2027-06-06",
+        "completion_week": 23,
+        "simulated_completion_date": "2027-06-13",
         "planned_completion_date": "2027-06-13",
         "overrun_days": 0,
         "priority": 3,
+        "score_weight": 7.2,
+        "weighted_overrun_score": 0.0,
         "evidence_id": "contract:C001"
       },
       {
         "contract_number": "C002",
-        "completion_week": 25,
-        "simulated_completion_date": "2027-06-27",
+        "completion_week": 26,
+        "simulated_completion_date": "2027-07-04",
         "planned_completion_date": "2027-07-04",
         "overrun_days": 0,
         "priority": 2,
+        "score_weight": 60.0,
+        "weighted_overrun_score": 0.0,
         "evidence_id": "contract:C002"
       },
       {
         "contract_number": "C003",
-        "completion_week": 23,
-        "simulated_completion_date": "2027-06-13",
+        "completion_week": 26,
+        "simulated_completion_date": "2027-07-04",
         "planned_completion_date": "2027-07-04",
         "overrun_days": 0,
         "priority": 1,
+        "score_weight": 440.0,
+        "weighted_overrun_score": 0.0,
         "evidence_id": "contract:C003"
       },
       {
         "contract_number": "C004",
-        "completion_week": 27,
-        "simulated_completion_date": "2027-07-11",
+        "completion_week": 28,
+        "simulated_completion_date": "2027-07-18",
         "planned_completion_date": "2027-07-25",
         "overrun_days": 0,
         "priority": 1,
+        "score_weight": 380.0,
+        "weighted_overrun_score": 0.0,
         "evidence_id": "contract:C004"
       },
       {
@@ -73,6 +1323,8 @@
         "planned_completion_date": "2027-03-21",
         "overrun_days": 0,
         "priority": 3,
+        "score_weight": 2.2,
+        "weighted_overrun_score": 0.0,
         "evidence_id": "contract:C005"
       },
       {
@@ -82,15 +1334,19 @@
         "planned_completion_date": "2027-07-04",
         "overrun_days": 14,
         "priority": 3,
+        "score_weight": 6.1,
+        "weighted_overrun_score": 85.4,
         "evidence_id": "contract:C006"
       },
       {
         "contract_number": "C007",
-        "completion_week": 25,
-        "simulated_completion_date": "2027-06-27",
+        "completion_week": 27,
+        "simulated_completion_date": "2027-07-11",
         "planned_completion_date": "2027-07-11",
         "overrun_days": 0,
         "priority": 1,
+        "score_weight": 550.0,
+        "weighted_overrun_score": 0.0,
         "evidence_id": "contract:C007"
       },
       {
@@ -100,15 +1356,19 @@
         "planned_completion_date": "2027-07-18",
         "overrun_days": 0,
         "priority": 3,
+        "score_weight": 5.5,
+        "weighted_overrun_score": 0.0,
         "evidence_id": "contract:C008"
       },
       {
         "contract_number": "C009",
-        "completion_week": 22,
-        "simulated_completion_date": "2027-06-06",
+        "completion_week": 25,
+        "simulated_completion_date": "2027-06-27",
         "planned_completion_date": "2027-06-27",
         "overrun_days": 0,
         "priority": 3,
+        "score_weight": 4.7,
+        "weighted_overrun_score": 0.0,
         "evidence_id": "contract:C009"
       },
       {
@@ -118,6 +1378,8 @@
         "planned_completion_date": "2027-05-16",
         "overrun_days": 7,
         "priority": 3,
+        "score_weight": 6.5,
+        "weighted_overrun_score": 45.5,
         "evidence_id": "contract:C010"
       },
       {
@@ -127,6 +1389,8 @@
         "planned_completion_date": "2027-07-11",
         "overrun_days": 0,
         "priority": 2,
+        "score_weight": 60.0,
+        "weighted_overrun_score": 0.0,
         "evidence_id": "contract:C011"
       },
       {
@@ -136,24 +1400,30 @@
         "planned_completion_date": "2027-07-11",
         "overrun_days": 0,
         "priority": 1,
+        "score_weight": 220.0,
+        "weighted_overrun_score": 0.0,
         "evidence_id": "contract:C012"
       },
       {
         "contract_number": "C013",
-        "completion_week": 19,
-        "simulated_completion_date": "2027-05-16",
+        "completion_week": 21,
+        "simulated_completion_date": "2027-05-30",
         "planned_completion_date": "2027-05-30",
         "overrun_days": 0,
         "priority": 2,
+        "score_weight": 12.0,
+        "weighted_overrun_score": 0.0,
         "evidence_id": "contract:C013"
       },
       {
         "contract_number": "C014",
-        "completion_week": 24,
-        "simulated_completion_date": "2027-06-20",
+        "completion_week": 29,
+        "simulated_completion_date": "2027-07-25",
         "planned_completion_date": "2027-07-18",
-        "overrun_days": 0,
+        "overrun_days": 7,
         "priority": 3,
+        "score_weight": 1.0,
+        "weighted_overrun_score": 7.0,
         "evidence_id": "contract:C014"
       }
     ],
@@ -200,11 +1470,11 @@
       },
       {
         "location_id": "PLAT:ALP:H01:EB",
-        "week": 19,
+        "week": 21,
         "used": 1,
         "capacity": 1,
         "excess": 0,
-        "evidence_id": "capacity:PLAT:ALP:H01:EB:19"
+        "evidence_id": "capacity:PLAT:ALP:H01:EB:21"
       },
       {
         "location_id": "PLAT:ALP:H01:EB",
@@ -384,11 +1654,11 @@
       },
       {
         "location_id": "PLAT:ALP:H02:EB",
-        "week": 19,
+        "week": 21,
         "used": 1,
         "capacity": 1,
         "excess": 0,
-        "evidence_id": "capacity:PLAT:ALP:H02:EB:19"
+        "evidence_id": "capacity:PLAT:ALP:H02:EB:21"
       },
       {
         "location_id": "PLAT:ALP:H02:EB",
@@ -512,22 +1782,6 @@
       },
       {
         "location_id": "PLAT:ALP:S01:EB",
-        "week": 9,
-        "used": 1,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:ALP:S01:EB:9"
-      },
-      {
-        "location_id": "PLAT:ALP:S01:EB",
-        "week": 10,
-        "used": 1,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:ALP:S01:EB:10"
-      },
-      {
-        "location_id": "PLAT:ALP:S01:EB",
         "week": 11,
         "used": 1,
         "capacity": 2,
@@ -559,28 +1813,28 @@
         "evidence_id": "capacity:PLAT:ALP:S01:EB:14"
       },
       {
+        "location_id": "PLAT:ALP:S01:EB",
+        "week": 15,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:ALP:S01:EB:15"
+      },
+      {
+        "location_id": "PLAT:ALP:S01:EB",
+        "week": 16,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:ALP:S01:EB:16"
+      },
+      {
         "location_id": "PLAT:ALP:S02:EB",
         "week": 8,
         "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S02:EB:8"
-      },
-      {
-        "location_id": "PLAT:ALP:S02:EB",
-        "week": 9,
-        "used": 1,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:ALP:S02:EB:9"
-      },
-      {
-        "location_id": "PLAT:ALP:S02:EB",
-        "week": 10,
-        "used": 1,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:ALP:S02:EB:10"
       },
       {
         "location_id": "PLAT:ALP:S02:EB",
@@ -613,6 +1867,22 @@
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S02:EB:14"
+      },
+      {
+        "location_id": "PLAT:ALP:S02:EB",
+        "week": 15,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:ALP:S02:EB:15"
+      },
+      {
+        "location_id": "PLAT:ALP:S02:EB",
+        "week": 16,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:ALP:S02:EB:16"
       },
       {
         "location_id": "PLAT:ALP:S02:WB",
@@ -657,7 +1927,7 @@
       {
         "location_id": "PLAT:ALP:S03:EB",
         "week": 9,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S03:EB:9"
@@ -665,7 +1935,7 @@
       {
         "location_id": "PLAT:ALP:S03:EB",
         "week": 10,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S03:EB:10"
@@ -704,6 +1974,14 @@
       },
       {
         "location_id": "PLAT:ALP:S03:EB",
+        "week": 15,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:ALP:S03:EB:15"
+      },
+      {
+        "location_id": "PLAT:ALP:S03:EB",
         "week": 16,
         "used": 1,
         "capacity": 2,
@@ -737,7 +2015,7 @@
       {
         "location_id": "PLAT:ALP:S03:WB",
         "week": 2,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S03:WB:2"
@@ -864,14 +2142,6 @@
       },
       {
         "location_id": "PLAT:ALP:S03:WB",
-        "week": 21,
-        "used": 1,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:ALP:S03:WB:21"
-      },
-      {
-        "location_id": "PLAT:ALP:S03:WB",
         "week": 22,
         "used": 1,
         "capacity": 2,
@@ -917,6 +2187,14 @@
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S03:WB:27"
+      },
+      {
+        "location_id": "PLAT:ALP:S03:WB",
+        "week": 28,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:ALP:S03:WB:28"
       },
       {
         "location_id": "PLAT:ALP:S04:EB",
@@ -977,7 +2255,7 @@
       {
         "location_id": "PLAT:ALP:S04:WB",
         "week": 2,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S04:WB:2"
@@ -1104,14 +2382,6 @@
       },
       {
         "location_id": "PLAT:ALP:S04:WB",
-        "week": 21,
-        "used": 1,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:ALP:S04:WB:21"
-      },
-      {
-        "location_id": "PLAT:ALP:S04:WB",
         "week": 22,
         "used": 1,
         "capacity": 2,
@@ -1157,6 +2427,14 @@
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S04:WB:27"
+      },
+      {
+        "location_id": "PLAT:ALP:S04:WB",
+        "week": 28,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:ALP:S04:WB:28"
       },
       {
         "location_id": "PLAT:ALP:S05:EB",
@@ -1281,7 +2559,7 @@
       {
         "location_id": "PLAT:ALP:S05:WB",
         "week": 13,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S05:WB:13"
@@ -1309,14 +2587,6 @@
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S05:WB:19"
-      },
-      {
-        "location_id": "PLAT:ALP:S05:WB",
-        "week": 21,
-        "used": 1,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:ALP:S05:WB:21"
       },
       {
         "location_id": "PLAT:ALP:S05:WB",
@@ -1349,6 +2619,14 @@
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S05:WB:25"
+      },
+      {
+        "location_id": "PLAT:ALP:S05:WB",
+        "week": 26,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:ALP:S05:WB:26"
       },
       {
         "location_id": "PLAT:ALP:S06:EB",
@@ -1513,7 +2791,7 @@
       {
         "location_id": "PLAT:ALP:S06:WB",
         "week": 18,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S06:WB:18"
@@ -1533,14 +2811,6 @@
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S06:WB:20"
-      },
-      {
-        "location_id": "PLAT:ALP:S06:WB",
-        "week": 21,
-        "used": 1,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:ALP:S06:WB:21"
       },
       {
         "location_id": "PLAT:ALP:S06:WB",
@@ -1573,6 +2843,14 @@
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S06:WB:25"
+      },
+      {
+        "location_id": "PLAT:ALP:S06:WB",
+        "week": 26,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:ALP:S06:WB:26"
       },
       {
         "location_id": "PLAT:ALP:S07:EB",
@@ -1681,7 +2959,7 @@
       {
         "location_id": "PLAT:ALP:S07:WB",
         "week": 18,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:ALP:S07:WB:18"
@@ -1968,14 +3246,6 @@
       },
       {
         "location_id": "PLAT:BET:H01:EB",
-        "week": 21,
-        "used": 1,
-        "capacity": 1,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:BET:H01:EB:21"
-      },
-      {
-        "location_id": "PLAT:BET:H01:EB",
         "week": 22,
         "used": 1,
         "capacity": 1,
@@ -2088,11 +3358,11 @@
       },
       {
         "location_id": "PLAT:BET:H01:WB",
-        "week": 24,
+        "week": 29,
         "used": 1,
         "capacity": 1,
         "excess": 0,
-        "evidence_id": "capacity:PLAT:BET:H01:WB:24"
+        "evidence_id": "capacity:PLAT:BET:H01:WB:29"
       },
       {
         "location_id": "PLAT:BET:H02:EB",
@@ -2232,14 +3502,6 @@
       },
       {
         "location_id": "PLAT:BET:H02:EB",
-        "week": 21,
-        "used": 1,
-        "capacity": 1,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:BET:H02:EB:21"
-      },
-      {
-        "location_id": "PLAT:BET:H02:EB",
         "week": 22,
         "used": 1,
         "capacity": 1,
@@ -2253,6 +3515,30 @@
         "capacity": 1,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:H02:EB:23"
+      },
+      {
+        "location_id": "PLAT:BET:H02:EB",
+        "week": 24,
+        "used": 1,
+        "capacity": 1,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:BET:H02:EB:24"
+      },
+      {
+        "location_id": "PLAT:BET:H02:EB",
+        "week": 25,
+        "used": 1,
+        "capacity": 1,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:BET:H02:EB:25"
+      },
+      {
+        "location_id": "PLAT:BET:H02:EB",
+        "week": 26,
+        "used": 1,
+        "capacity": 1,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:BET:H02:EB:26"
       },
       {
         "location_id": "PLAT:BET:H02:WB",
@@ -2344,11 +3630,11 @@
       },
       {
         "location_id": "PLAT:BET:H02:WB",
-        "week": 24,
+        "week": 29,
         "used": 1,
         "capacity": 1,
         "excess": 0,
-        "evidence_id": "capacity:PLAT:BET:H02:WB:24"
+        "evidence_id": "capacity:PLAT:BET:H02:WB:29"
       },
       {
         "location_id": "PLAT:BET:S11:WB",
@@ -2849,7 +4135,7 @@
       {
         "location_id": "PLAT:BET:S15:EB",
         "week": 8,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S15:EB:8"
@@ -2857,7 +4143,7 @@
       {
         "location_id": "PLAT:BET:S15:EB",
         "week": 9,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S15:EB:9"
@@ -2873,7 +4159,7 @@
       {
         "location_id": "PLAT:BET:S15:EB",
         "week": 11,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S15:EB:11"
@@ -2881,7 +4167,7 @@
       {
         "location_id": "PLAT:BET:S15:EB",
         "week": 12,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S15:EB:12"
@@ -2905,7 +4191,7 @@
       {
         "location_id": "PLAT:BET:S15:EB",
         "week": 15,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S15:EB:15"
@@ -2913,7 +4199,7 @@
       {
         "location_id": "PLAT:BET:S15:EB",
         "week": 16,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S15:EB:16"
@@ -2952,16 +4238,8 @@
       },
       {
         "location_id": "PLAT:BET:S15:EB",
-        "week": 21,
-        "used": 2,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:BET:S15:EB:21"
-      },
-      {
-        "location_id": "PLAT:BET:S15:EB",
         "week": 22,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S15:EB:22"
@@ -2969,7 +4247,7 @@
       {
         "location_id": "PLAT:BET:S15:EB",
         "week": 23,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S15:EB:23"
@@ -2989,6 +4267,22 @@
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S15:EB:25"
+      },
+      {
+        "location_id": "PLAT:BET:S15:EB",
+        "week": 26,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:BET:S15:EB:26"
+      },
+      {
+        "location_id": "PLAT:BET:S15:EB",
+        "week": 27,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:BET:S15:EB:27"
       },
       {
         "location_id": "PLAT:BET:S15:WB",
@@ -3105,7 +4399,7 @@
       {
         "location_id": "PLAT:BET:S16:EB",
         "week": 11,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S16:EB:11"
@@ -3113,7 +4407,7 @@
       {
         "location_id": "PLAT:BET:S16:EB",
         "week": 12,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S16:EB:12"
@@ -3137,7 +4431,7 @@
       {
         "location_id": "PLAT:BET:S16:EB",
         "week": 15,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S16:EB:15"
@@ -3145,7 +4439,7 @@
       {
         "location_id": "PLAT:BET:S16:EB",
         "week": 16,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S16:EB:16"
@@ -3184,16 +4478,8 @@
       },
       {
         "location_id": "PLAT:BET:S16:EB",
-        "week": 21,
-        "used": 2,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:BET:S16:EB:21"
-      },
-      {
-        "location_id": "PLAT:BET:S16:EB",
         "week": 22,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S16:EB:22"
@@ -3201,7 +4487,7 @@
       {
         "location_id": "PLAT:BET:S16:EB",
         "week": 23,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S16:EB:23"
@@ -3221,6 +4507,22 @@
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S16:EB:25"
+      },
+      {
+        "location_id": "PLAT:BET:S16:EB",
+        "week": 26,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:BET:S16:EB:26"
+      },
+      {
+        "location_id": "PLAT:BET:S16:EB",
+        "week": 27,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:BET:S16:EB:27"
       },
       {
         "location_id": "PLAT:BET:S16:WB",
@@ -3297,7 +4599,7 @@
       {
         "location_id": "PLAT:BET:S17:EB",
         "week": 11,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S17:EB:11"
@@ -3305,7 +4607,7 @@
       {
         "location_id": "PLAT:BET:S17:EB",
         "week": 12,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S17:EB:12"
@@ -3328,16 +4630,8 @@
       },
       {
         "location_id": "PLAT:BET:S17:EB",
-        "week": 15,
-        "used": 1,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:BET:S17:EB:15"
-      },
-      {
-        "location_id": "PLAT:BET:S17:EB",
         "week": 16,
-        "used": 2,
+        "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S17:EB:16"
@@ -3400,19 +4694,27 @@
       },
       {
         "location_id": "PLAT:BET:S17:EB",
-        "week": 24,
-        "used": 1,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:BET:S17:EB:24"
-      },
-      {
-        "location_id": "PLAT:BET:S17:EB",
         "week": 25,
         "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S17:EB:25"
+      },
+      {
+        "location_id": "PLAT:BET:S17:EB",
+        "week": 26,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:BET:S17:EB:26"
+      },
+      {
+        "location_id": "PLAT:BET:S17:EB",
+        "week": 27,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:BET:S17:EB:27"
       },
       {
         "location_id": "PLAT:BET:S17:WB",
@@ -3456,14 +4758,6 @@
       },
       {
         "location_id": "PLAT:BET:S18:EB",
-        "week": 16,
-        "used": 1,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:BET:S18:EB:16"
-      },
-      {
-        "location_id": "PLAT:BET:S18:EB",
         "week": 17,
         "used": 1,
         "capacity": 2,
@@ -3496,19 +4790,11 @@
       },
       {
         "location_id": "PLAT:BET:S18:EB",
-        "week": 23,
+        "week": 21,
         "used": 1,
         "capacity": 2,
         "excess": 0,
-        "evidence_id": "capacity:PLAT:BET:S18:EB:23"
-      },
-      {
-        "location_id": "PLAT:BET:S18:EB",
-        "week": 24,
-        "used": 1,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:PLAT:BET:S18:EB:24"
+        "evidence_id": "capacity:PLAT:BET:S18:EB:21"
       },
       {
         "location_id": "PLAT:BET:S18:EB",
@@ -3517,6 +4803,22 @@
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:PLAT:BET:S18:EB:25"
+      },
+      {
+        "location_id": "PLAT:BET:S18:EB",
+        "week": 26,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:BET:S18:EB:26"
+      },
+      {
+        "location_id": "PLAT:BET:S18:EB",
+        "week": 27,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:PLAT:BET:S18:EB:27"
       },
       {
         "location_id": "PLAT:BET:S18:WB",
@@ -3552,11 +4854,11 @@
       },
       {
         "location_id": "SEC:ALP:H01_H02:EB",
-        "week": 19,
+        "week": 21,
         "used": 1,
         "capacity": 1,
         "excess": 0,
-        "evidence_id": "capacity:SEC:ALP:H01_H02:EB:19"
+        "evidence_id": "capacity:SEC:ALP:H01_H02:EB:21"
       },
       {
         "location_id": "SEC:ALP:H01_H02:EB",
@@ -3728,22 +5030,6 @@
       },
       {
         "location_id": "SEC:ALP:S01_S02:EB",
-        "week": 9,
-        "used": 1,
-        "capacity": 4,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:ALP:S01_S02:EB:9"
-      },
-      {
-        "location_id": "SEC:ALP:S01_S02:EB",
-        "week": 10,
-        "used": 1,
-        "capacity": 4,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:ALP:S01_S02:EB:10"
-      },
-      {
-        "location_id": "SEC:ALP:S01_S02:EB",
         "week": 11,
         "used": 1,
         "capacity": 4,
@@ -3775,28 +5061,28 @@
         "evidence_id": "capacity:SEC:ALP:S01_S02:EB:14"
       },
       {
+        "location_id": "SEC:ALP:S01_S02:EB",
+        "week": 15,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:ALP:S01_S02:EB:15"
+      },
+      {
+        "location_id": "SEC:ALP:S01_S02:EB",
+        "week": 16,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:ALP:S01_S02:EB:16"
+      },
+      {
         "location_id": "SEC:ALP:S02_S03:EB",
         "week": 8,
         "used": 1,
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:ALP:S02_S03:EB:8"
-      },
-      {
-        "location_id": "SEC:ALP:S02_S03:EB",
-        "week": 9,
-        "used": 1,
-        "capacity": 4,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:ALP:S02_S03:EB:9"
-      },
-      {
-        "location_id": "SEC:ALP:S02_S03:EB",
-        "week": 10,
-        "used": 1,
-        "capacity": 4,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:ALP:S02_S03:EB:10"
       },
       {
         "location_id": "SEC:ALP:S02_S03:EB",
@@ -3829,6 +5115,22 @@
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:ALP:S02_S03:EB:14"
+      },
+      {
+        "location_id": "SEC:ALP:S02_S03:EB",
+        "week": 15,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:ALP:S02_S03:EB:15"
+      },
+      {
+        "location_id": "SEC:ALP:S02_S03:EB",
+        "week": 16,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:ALP:S02_S03:EB:16"
       },
       {
         "location_id": "SEC:ALP:S02_S03:WB",
@@ -3913,7 +5215,7 @@
       {
         "location_id": "SEC:ALP:S03_S04:WB",
         "week": 2,
-        "used": 2,
+        "used": 1,
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:ALP:S03_S04:WB:2"
@@ -4040,14 +5342,6 @@
       },
       {
         "location_id": "SEC:ALP:S03_S04:WB",
-        "week": 21,
-        "used": 1,
-        "capacity": 4,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:ALP:S03_S04:WB:21"
-      },
-      {
-        "location_id": "SEC:ALP:S03_S04:WB",
         "week": 22,
         "used": 1,
         "capacity": 4,
@@ -4093,6 +5387,14 @@
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:ALP:S03_S04:WB:27"
+      },
+      {
+        "location_id": "SEC:ALP:S03_S04:WB",
+        "week": 28,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:ALP:S03_S04:WB:28"
       },
       {
         "location_id": "SEC:ALP:S04_H01:EB",
@@ -4408,14 +5710,6 @@
       },
       {
         "location_id": "SEC:ALP:S05_S06:WB",
-        "week": 21,
-        "used": 1,
-        "capacity": 4,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:ALP:S05_S06:WB:21"
-      },
-      {
-        "location_id": "SEC:ALP:S05_S06:WB",
         "week": 22,
         "used": 1,
         "capacity": 4,
@@ -4445,6 +5739,14 @@
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:ALP:S05_S06:WB:25"
+      },
+      {
+        "location_id": "SEC:ALP:S05_S06:WB",
+        "week": 26,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:ALP:S05_S06:WB:26"
       },
       {
         "location_id": "SEC:ALP:S06_S07:WB",
@@ -4497,7 +5799,7 @@
       {
         "location_id": "SEC:ALP:S06_S07:WB",
         "week": 18,
-        "used": 2,
+        "used": 1,
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:ALP:S06_S07:WB:18"
@@ -4784,14 +6086,6 @@
       },
       {
         "location_id": "SEC:BET:H01_H02:EB",
-        "week": 21,
-        "used": 1,
-        "capacity": 1,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:BET:H01_H02:EB:21"
-      },
-      {
-        "location_id": "SEC:BET:H01_H02:EB",
         "week": 22,
         "used": 1,
         "capacity": 1,
@@ -4805,6 +6099,30 @@
         "capacity": 1,
         "excess": 0,
         "evidence_id": "capacity:SEC:BET:H01_H02:EB:23"
+      },
+      {
+        "location_id": "SEC:BET:H01_H02:EB",
+        "week": 24,
+        "used": 1,
+        "capacity": 1,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:BET:H01_H02:EB:24"
+      },
+      {
+        "location_id": "SEC:BET:H01_H02:EB",
+        "week": 25,
+        "used": 1,
+        "capacity": 1,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:BET:H01_H02:EB:25"
+      },
+      {
+        "location_id": "SEC:BET:H01_H02:EB",
+        "week": 26,
+        "used": 1,
+        "capacity": 1,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:BET:H01_H02:EB:26"
       },
       {
         "location_id": "SEC:BET:H01_H02:WB",
@@ -4864,11 +6182,11 @@
       },
       {
         "location_id": "SEC:BET:H01_H02:WB",
-        "week": 24,
+        "week": 29,
         "used": 1,
         "capacity": 1,
         "excess": 0,
-        "evidence_id": "capacity:SEC:BET:H01_H02:WB:24"
+        "evidence_id": "capacity:SEC:BET:H01_H02:WB:29"
       },
       {
         "location_id": "SEC:BET:H02_S15:EB",
@@ -4968,14 +6286,6 @@
       },
       {
         "location_id": "SEC:BET:H02_S15:EB",
-        "week": 16,
-        "used": 1,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:BET:H02_S15:EB:16"
-      },
-      {
-        "location_id": "SEC:BET:H02_S15:EB",
         "week": 17,
         "used": 1,
         "capacity": 2,
@@ -5008,27 +6318,35 @@
       },
       {
         "location_id": "SEC:BET:H02_S15:EB",
-        "week": 21,
-        "used": 1,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:BET:H02_S15:EB:21"
-      },
-      {
-        "location_id": "SEC:BET:H02_S15:EB",
-        "week": 22,
-        "used": 1,
-        "capacity": 2,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:BET:H02_S15:EB:22"
-      },
-      {
-        "location_id": "SEC:BET:H02_S15:EB",
         "week": 23,
         "used": 1,
         "capacity": 2,
         "excess": 0,
         "evidence_id": "capacity:SEC:BET:H02_S15:EB:23"
+      },
+      {
+        "location_id": "SEC:BET:H02_S15:EB",
+        "week": 24,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:BET:H02_S15:EB:24"
+      },
+      {
+        "location_id": "SEC:BET:H02_S15:EB",
+        "week": 25,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:BET:H02_S15:EB:25"
+      },
+      {
+        "location_id": "SEC:BET:H02_S15:EB",
+        "week": 26,
+        "used": 1,
+        "capacity": 2,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:BET:H02_S15:EB:26"
       },
       {
         "location_id": "SEC:BET:H02_S15:WB",
@@ -5481,7 +6799,7 @@
       {
         "location_id": "SEC:BET:S15_S16:EB",
         "week": 11,
-        "used": 2,
+        "used": 1,
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:BET:S15_S16:EB:11"
@@ -5489,7 +6807,7 @@
       {
         "location_id": "SEC:BET:S15_S16:EB",
         "week": 12,
-        "used": 2,
+        "used": 1,
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:BET:S15_S16:EB:12"
@@ -5513,7 +6831,7 @@
       {
         "location_id": "SEC:BET:S15_S16:EB",
         "week": 15,
-        "used": 2,
+        "used": 1,
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:BET:S15_S16:EB:15"
@@ -5521,7 +6839,7 @@
       {
         "location_id": "SEC:BET:S15_S16:EB",
         "week": 16,
-        "used": 2,
+        "used": 1,
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:BET:S15_S16:EB:16"
@@ -5560,16 +6878,8 @@
       },
       {
         "location_id": "SEC:BET:S15_S16:EB",
-        "week": 21,
-        "used": 2,
-        "capacity": 4,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:BET:S15_S16:EB:21"
-      },
-      {
-        "location_id": "SEC:BET:S15_S16:EB",
         "week": 22,
-        "used": 2,
+        "used": 1,
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:BET:S15_S16:EB:22"
@@ -5577,7 +6887,7 @@
       {
         "location_id": "SEC:BET:S15_S16:EB",
         "week": 23,
-        "used": 2,
+        "used": 1,
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:BET:S15_S16:EB:23"
@@ -5597,6 +6907,22 @@
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:BET:S15_S16:EB:25"
+      },
+      {
+        "location_id": "SEC:BET:S15_S16:EB",
+        "week": 26,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:BET:S15_S16:EB:26"
+      },
+      {
+        "location_id": "SEC:BET:S15_S16:EB",
+        "week": 27,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:BET:S15_S16:EB:27"
       },
       {
         "location_id": "SEC:BET:S15_S16:WB",
@@ -5696,27 +7022,11 @@
       },
       {
         "location_id": "SEC:BET:S16_S17:EB",
-        "week": 15,
-        "used": 1,
-        "capacity": 4,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:BET:S16_S17:EB:15"
-      },
-      {
-        "location_id": "SEC:BET:S16_S17:EB",
         "week": 16,
         "used": 1,
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:BET:S16_S17:EB:16"
-      },
-      {
-        "location_id": "SEC:BET:S16_S17:EB",
-        "week": 21,
-        "used": 1,
-        "capacity": 4,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:BET:S16_S17:EB:21"
       },
       {
         "location_id": "SEC:BET:S16_S17:EB",
@@ -5736,19 +7046,27 @@
       },
       {
         "location_id": "SEC:BET:S16_S17:EB",
-        "week": 24,
-        "used": 1,
-        "capacity": 4,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:BET:S16_S17:EB:24"
-      },
-      {
-        "location_id": "SEC:BET:S16_S17:EB",
         "week": 25,
         "used": 1,
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:BET:S16_S17:EB:25"
+      },
+      {
+        "location_id": "SEC:BET:S16_S17:EB",
+        "week": 26,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:BET:S16_S17:EB:26"
+      },
+      {
+        "location_id": "SEC:BET:S16_S17:EB",
+        "week": 27,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:BET:S16_S17:EB:27"
       },
       {
         "location_id": "SEC:BET:S17_S18:EB",
@@ -5773,14 +7091,6 @@
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:BET:S17_S18:EB:12"
-      },
-      {
-        "location_id": "SEC:BET:S17_S18:EB",
-        "week": 16,
-        "used": 1,
-        "capacity": 4,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:BET:S17_S18:EB:16"
       },
       {
         "location_id": "SEC:BET:S17_S18:EB",
@@ -5816,19 +7126,11 @@
       },
       {
         "location_id": "SEC:BET:S17_S18:EB",
-        "week": 23,
+        "week": 21,
         "used": 1,
         "capacity": 4,
         "excess": 0,
-        "evidence_id": "capacity:SEC:BET:S17_S18:EB:23"
-      },
-      {
-        "location_id": "SEC:BET:S17_S18:EB",
-        "week": 24,
-        "used": 1,
-        "capacity": 4,
-        "excess": 0,
-        "evidence_id": "capacity:SEC:BET:S17_S18:EB:24"
+        "evidence_id": "capacity:SEC:BET:S17_S18:EB:21"
       },
       {
         "location_id": "SEC:BET:S17_S18:EB",
@@ -5837,6 +7139,22 @@
         "capacity": 4,
         "excess": 0,
         "evidence_id": "capacity:SEC:BET:S17_S18:EB:25"
+      },
+      {
+        "location_id": "SEC:BET:S17_S18:EB",
+        "week": 26,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:BET:S17_S18:EB:26"
+      },
+      {
+        "location_id": "SEC:BET:S17_S18:EB",
+        "week": 27,
+        "used": 1,
+        "capacity": 4,
+        "excess": 0,
+        "evidence_id": "capacity:SEC:BET:S17_S18:EB:27"
       },
       {
         "location_id": "SEC:BET:S17_S18:WB",
@@ -5856,7 +7174,7 @@
       }
     ],
     "eclo_windows": {},
-    "sharing_saved": 181
+    "sharing_saved": 210
   },
-  "interpretation": "Local conservative temporal-witness model. Official validator unavailable."
+  "interpretation": "Local CSV closure and contract-overrun scoring model with auxiliary timing checks. Reproduces supplied validator evidence; official executable unavailable."
 }

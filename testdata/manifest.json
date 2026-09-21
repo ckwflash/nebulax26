@@ -70,19 +70,19 @@
           "score": 70
         },
         "B": {
-          "feasible": true,
-          "score": 21
+          "feasible": false,
+          "diagnostic_overrun": true
         },
         "C": {
           "feasible": true,
-          "score": 21
+          "score": 70
         }
       },
       "oracle": "analytic",
-      "proof": "Only four jobs fit a possession. A delays one job one week (70). B/C buy a second possession at one sector and two platforms: 3 \u00d7 7 = 21.",
+      "proof": "Only four jobs fit the shared possession. A/C delay one job one week (70). A separate possession in the same week violates the first group's closure, even with extra supply. B's week-1 deadline is infeasible; a diagnostic overrun may be returned.",
       "features": [
         "sharing limit of four",
-        "location accounting",
+        "weekly closure",
         "supply congestion"
       ],
       "activities": 5,
@@ -99,20 +99,20 @@
           "score": 210
         },
         "B": {
-          "feasible": true,
-          "score": 42
+          "feasible": false,
+          "diagnostic_overrun": true
         },
         "C": {
           "feasible": true,
-          "score": 91
+          "score": 210
         }
       },
       "oracle": "analytic",
-      "proof": "The three jobs require separate possessions. A completes in weeks 1/2/3: (0+7+14) \u00d7 10 = 210. B buys two extra possessions at three locations (42). C permits one extra: two jobs in week 1 and one in week 2 cost 21+70=91.",
+      "proof": "The three incompatible jobs require separate weeks under the observed CSV closure rule. A/C complete in weeks 1/2/3: (0+7+14) \u00d7 10 = 210. B cannot meet all week-1 deadlines even with extra supply; a diagnostic overrun may be returned.",
       "features": [
         "PM exclusive",
         "PC cannot share with PC",
-        "C excess cap"
+        "weekly closure"
       ],
       "activities": 3,
       "contracts": 3,
@@ -166,16 +166,16 @@
         }
       },
       "oracle": "analytic",
-      "proof": "Two different opportunities in week 1 deliver both jobs without ECLO or excess. Their mirrored cross-line protection intersects, so assigning the same opportunity must be rejected.",
+      "proof": "The jobs take different weeks and finish by week 2 without ECLO or excess. Their mirrored cross-line closures prevent using the same week, regardless of private timing slots or reused labels.",
       "features": [
         "opposite-bound mirror",
         "cross-line protection",
-        "timing witness"
+        "weekly closure"
       ],
       "activities": 2,
       "contracts": 2,
       "workload": 2,
-      "zip_sha256": "c3447fd4b2833335ca6b6c3deb5e0f2fe7e0c910236d1e4be2fb0dcbcdcdf42f"
+      "zip_sha256": "40e4600daeb9d874ccf89b3abf6e2ac4efe15a7a46db7274d96ffbab099cdbc9"
     },
     {
       "slug": "07_eclo_window",
@@ -212,7 +212,7 @@
       "expected": {
         "A": {
           "feasible": true,
-          "score": 2240.0
+          "lower_bound": 12670.0
         },
         "B": {
           "feasible": true,
@@ -220,11 +220,11 @@
         },
         "C": {
           "feasible": true,
-          "score": 720.0
+          "score": 3870.0
         }
       },
       "oracle": "analytical A/C lower bounds; invariant B",
-      "proof": "Seed 20260918 changes only priority weights and promotes C006/C010 to P1. Feasibility is preserved. The resource-free standard-work A bound is 2240; B's objective is unchanged at 30. C permits at most two ECLO accesses per activity: independently minimizing each activity's delay plus 0/1/2 ECLO costs gives a resource-free lower bound of 720. Valid schedules attain both A/C bounds, proving optimality without relying on CP-SAT's status alone.",
+      "proof": "Seed 20260918 changes only priority weights and promotes C006/C010 to P1. The resource-free standard-work A lower bound is 12670, but ignores weekly closures and is not an attained optimum. B's optimum remains 30. C permits at most two ECLO accesses per activity; the independent lower bound of 3870 is attainable.",
       "features": [
         "54 activities",
         "weighted priorities",
@@ -241,7 +241,7 @@
       "expected": {
         "A": {
           "feasible": true,
-          "score": 50.4
+          "score": 275.8
         },
         "B": {
           "feasible": true,
@@ -249,11 +249,11 @@
         },
         "C": {
           "feasible": true,
-          "score": 50.4
+          "score": 125.4
         }
       },
-      "oracle": "compositional from certified public optima",
-      "proof": "Duplicate every identifier and network resource into two disjoint components. Each feasible solution restricts to a feasible original solution, and two original solutions combine. Scores add, so optima are exactly twice the certified public scores. This is a scale test, not a claim of doubled congestion.",
+      "oracle": "compositional from corrected local public optima",
+      "proof": "Duplicate every identifier and network resource into two disjoint components. Each feasible solution restricts to a feasible original solution, and two original solutions combine. Scores add, so local-model optima are twice the corrected public scores (137.9/30/62.7). This is a scale test, not a claim of doubled congestion.",
       "features": [
         "108 activities",
         "384 work units",

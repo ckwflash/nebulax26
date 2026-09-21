@@ -1,13 +1,39 @@
-"""Independent checks of exported decisions and an explicit temporal witness.
+"""Independent CSV possession/closure checks, plus optional timing checks.
 
-The official CSV format alone does not specify global night synchronization.
-Imported schedules without a witness receive structural checks but no safety claim.
+Weekly closure semantics reproduce the supplied September 19 rejection report;
+the organiser's validator itself is not bundled with this project.
 """
 from collections import Counter, defaultdict
 from itertools import combinations
 
 from . import RULE_VERSION
 from .domain import Instance, Schedule, capacity_at
+
+
+def possession_components(groups, by_week):
+    """Join activities only through an actual shared location/week/group.
+
+    Reusing a label at unrelated locations is not evidence of co-possession.
+    Sharing is transitive when a route connects two local sharing groups.
+    """
+    parent = {(week, aid): aid for week, aids in by_week.items() for aid in aids}
+
+    def root(week, aid):
+        while parent[week, aid] != aid:
+            parent[week, aid] = parent[week, parent[week, aid]]
+            aid = parent[week, aid]
+        return aid
+
+    for (_, week, _), aids in groups.items():
+        present = sorted(a for a in aids if (week, a) in parent)
+        if present:
+            first = root(week, present[0])
+            for aid in present[1:]:
+                parent[week, root(week, aid)] = first
+    components = defaultdict(set)
+    for week, aid in parent:
+        components[week, root(week, aid)].add(aid)
+    return components
 
 
 def validate(instance: Instance, schedule: Schedule, overrides=()):
@@ -55,7 +81,6 @@ def validate(instance: Instance, schedule: Schedule, overrides=()):
         if rows:
             p = instance.projects[a.contract_number]
             late = max(0, (instance.week_end(finish[aid]) - p.planned_completion_date).days)
-            weighted += instance.weight10(aid) * late
             if schedule.scenario == "B" and late:
                 fail("planned_date", f"{aid}: completion misses {p.planned_completion_date} by {late} days.")
     for aid, a in instance.activities.items():
@@ -94,13 +119,26 @@ def validate(instance: Instance, schedule: Schedule, overrides=()):
             fail("capacity", f"{loc}, week {week}: {len(g)} possessions against capacity {cap}.")
         hotspots.append({"location_id": loc, "week": week, "used": len(g), "capacity": cap, "excess": over, "evidence_id": f"capacity:{loc}:{week}"})
 
-    # Independently inspect simultaneous activity pairs, without solver constraints.
-    safety_verified = bool(schedule.witness)
+    # Validate the actual export, regardless of any private timing sidecar.
+    components = possession_components(groups, by_week)
+    membership = {}
+    for (week, root), members in sorted(components.items()):
+        for aid in members:
+            membership[week, aid] = root
+        closure = set().union(*(instance.protected[aid] for aid in members))
+        for aid in sorted(set(by_week[week]) - members):
+            overlap = instance.routes[aid] & closure
+            if overlap:
+                fail("closure", f"wk{week}: {aid} inside closure of {sorted(members)[:3]} at {sorted(overlap)[:4]}",
+                     activity_id=aid, week=week, closure_activities=sorted(members), locations=sorted(overlap))
+
+    # The witness adds a timing check; it can never override a CSV closure error.
+    safety_verified = True
     expected_witness = {f"{r.activity_id}:{r.week}" for r in schedule.access}
-    if safety_verified and set(schedule.witness) != expected_witness:
+    if schedule.witness and set(schedule.witness) != expected_witness:
         fail("witness", "Timing witness does not match the access rows.")
         safety_verified = False
-    if safety_verified:
+    if schedule.witness and safety_verified:
         physical = defaultdict(list)
         location_timing = defaultdict(dict)
         for row in schedule.access:
@@ -124,10 +162,8 @@ def validate(instance: Instance, schedule: Schedule, overrides=()):
                 pi, pj = instance.projects[ai.contract_number], instance.projects[aj.contract_number]
                 overlap = instance.routes[i] & instance.routes[j]
                 sharing = bool(overlap) and "PM" not in (pi.access_type, pj.access_type) and (pi.access_type, pj.access_type) != ("PC", "PC")
-                if not sharing and instance.protected[i] & instance.protected[j]:
+                if membership[week, i] != membership[week, j] and not sharing and instance.protected[i] & instance.protected[j]:
                     fail("closure", f"Week {week}, opportunity {slot}: {i} and {j} have intersecting work/protection footprints.", activity_id=i, other_activity=j)
-    else:
-        warnings.append("Cross-location buffer safety is unverified: imported CSVs have no temporal witness. Local possession labels are not global nights.")
 
     eclo_by_line = defaultdict(list)
     for row in schedule.access:
@@ -144,17 +180,22 @@ def validate(instance: Instance, schedule: Schedule, overrides=()):
         fail("results", "RESULTS must contain exactly one row per contract.")
     contract_details, total_late, total_early, tiers = [], 0, 0, {"1": 0, "2": 0, "3": 0}
     for cid, p in instance.projects.items():
-        week = max((finish[a.activity_id] for a in instance.activities.values() if a.contract_number == cid), default=0)
+        members = [a.activity_id for a in instance.activities.values() if a.contract_number == cid]
+        week = max((finish[aid] for aid in members), default=0)
         completion = instance.week_end(week) if week else instance.start
         late = max(0, (completion - p.planned_completion_date).days)
         early = max(0, (p.planned_completion_date - completion).days)
         total_late += late
         total_early += early
         tiers[str(p.contract_priority)] += late
+        # The contract's final overrun is charged at every member's weight,
+        # including activities which individually finished before the deadline.
+        weight10 = sum(instance.weight10(aid) for aid in members)
+        weighted += weight10 * late
         row = result_rows.get(cid)
         if row and (row.scenario != schedule.scenario or row.simulated_completion_date != completion or row.overrun_days != late):
             fail("results", f"{cid}: completion summary does not match access rows.")
-        contract_details.append({"contract_number": cid, "completion_week": week, "simulated_completion_date": str(completion), "planned_completion_date": str(p.planned_completion_date), "overrun_days": late, "priority": p.contract_priority, "evidence_id": f"contract:{cid}"})
+        contract_details.append({"contract_number": cid, "completion_week": week, "simulated_completion_date": str(completion), "planned_completion_date": str(p.planned_completion_date), "overrun_days": late, "priority": p.contract_priority, "score_weight": weight10 / 10, "weighted_overrun_score": round(weight10 * late / 10, 1), "evidence_id": f"contract:{cid}"})
     eclo = sum(r.eclo for r in schedule.access)
     score = (0 if schedule.scenario == "B" else weighted / 10) + (0 if schedule.scenario == "A" else 7 * excess + 5 * eclo)
     feasible = not violations and safety_verified

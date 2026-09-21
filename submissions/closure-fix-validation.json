@@ -1,0 +1,41 @@
+{
+  "rule_version": "ps1-local-1.2",
+  "validation_authority": "local",
+  "feasible": true,
+  "score": 137.9,
+  "coverage_percent": 100.0,
+  "hard_violations": [],
+  "archive": "submissions/nightshift-A-corrected.zip",
+  "sha256": "bf2fb67d31829c6cecee6c23d798f9f8638ce325e45adb5a8a7b562f374aa687",
+  "reported_errors_reproduced": 49,
+  "python_tests_passed": 243,
+  "dataset_matrix_passed": "30/30",
+  "frontend_checks": "passed",
+  "production_build": "passed",
+  "official_validator_rerun": false,
+  "deployed": true,
+  "reported_validator_score": 137.9,
+  "score_breakdown": [
+    {
+      "contract_number": "C006",
+      "overrun_days": 14,
+      "score_weight": 6.1,
+      "weighted_overrun_score": 85.4
+    },
+    {
+      "contract_number": "C010",
+      "overrun_days": 7,
+      "score_weight": 6.5,
+      "weighted_overrun_score": 45.5
+    },
+    {
+      "contract_number": "C014",
+      "overrun_days": 7,
+      "score_weight": 1.0,
+      "weighted_overrun_score": 7.0
+    }
+  ],
+  "test_run_note": "242 tests passed in the full suite; the additional cache-score regression passed in a focused run.",
+  "deployed_revision": "nightshift-planning-v7",
+  "deployed_rule_version": "ps1-local-1.2"
+}

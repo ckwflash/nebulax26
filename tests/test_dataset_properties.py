@@ -29,7 +29,9 @@ def altered(case, change):
 def check(instance, scenario, score):
     result = solve(instance, scenario, 5)
     if score is None:
-        assert result["solver_status"] == "INFEASIBLE" and result["schedule"] is None
+        assert scenario == 'B' and not result['validation']['feasible']
+        assert result['validation']['coverage_percent'] == 100
+        assert {v['rule'] for v in result['validation']['hard_violations']} == {'planned_date'}
     else:
         assert result["solver_status"] == "OPTIMAL", result["solver_status"]
         assert result["validation"]["feasible"] and result["validation"]["coverage_percent"] == 100
@@ -55,10 +57,12 @@ def test_saved_datasets_match_reproducible_generator(cases):
 
 def test_priority_case_has_independently_derived_fixed_bounds(cases):
     case = cases["08_priority_pressure"]
-    assert [case["expected"][s]["score"] for s in "ABC"] == [2240, 30, 720]
+    assert case['expected']['A']['lower_bound'] == 12670
+    assert 'score' not in case['expected']['A']
+    assert [case["expected"][s]["score"] for s in "BC"] == [30, 3870]
 
 
-@pytest.mark.parametrize("scenario,score", [("A", 210), ("B", 42), ("C", 91)])
+@pytest.mark.parametrize("scenario,score", [("A", 210), ("B", None), ("C", 210)])
 def test_csv_row_order_does_not_change_optimum(cases, scenario, score):
     def shuffle(tables):
         rng = random.Random(12345)
@@ -96,12 +100,12 @@ def test_calendar_translation_preserves_cost_and_windows(cases, scenario, score)
     check(altered(cases["07_eclo_window"], shift), scenario, score)
 
 
-@pytest.mark.parametrize("scenario", "ABC")
-def test_more_supply_eliminates_the_known_bottleneck(cases, scenario):
+@pytest.mark.parametrize("scenario,score", [('A', 70), ('B', None), ('C', 70)])
+def test_more_supply_cannot_override_a_closure(cases, scenario, score):
     def increase(tables):
         for row in tables["supply"]:
             row["supply_capacity"] = "2"
-    check(altered(cases["03_sharing_limit"], increase), scenario, 0)
+    check(altered(cases["03_sharing_limit"], increase), scenario, score)
 
 
 @pytest.mark.parametrize("scenario,score", [("A", 140), ("B", None), ("C", 80)])

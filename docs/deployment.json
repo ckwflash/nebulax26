@@ -3,48 +3,73 @@
   "project": "qwiklabs-gcp-00-71d4c677d0cc",
   "region": "us-central1",
   "service": "nightshift",
-  "revision": "nightshift-00007-map",
-  "image_digest": "sha256:b9d9ef57e2525e22d57b6b12be3aa175e02b0a93c94c74d0ea0bcf36ed378dd1",
-  "build_id": "0fb9bf76-634c-401a-806b-e6731532fc88",
+  "revision": "nightshift-planning-v7",
+  "image_digest": "sha256:6364cce74e21ec3c532d71eb854fca0ded85a6c5fb269810523b607c88d577b5",
+  "build_id": "0ef8fe66-2dbd-49fc-91b3-d5da2546c477",
   "public": true,
   "runtime": {
-    "cpu": 2,
+    "cpu": 4,
     "memory": "4Gi",
+    "solver_threads": 4,
     "min_instances": 1,
     "max_instances": 1,
     "concurrency": 20,
     "cpu_throttling": false
   },
   "scores": {
-    "A": 25.2,
+    "A": 137.9,
     "B": 30,
-    "C": 25.2
+    "C": 62.7
   },
   "recovery": {
     "simulation": true,
-    "run_id": "3fb329978e21429cbaf37722a4be6ac6",
-    "completed_run_id": "22645a3fdf374f059c9061b36ce060e9",
+    "batch_id": "ef3570300ea4420e8d704baf20165b46",
+    "generation": 1789796466822960,
+    "approved_run_id": "e899aa807833d74e286588fcd575c7a3--0",
+    "approved_fingerprint": "ea44bdcf253ba43a1a2b5c4370dab44d7d2d72eaa522a81b538244d240ee3475",
+    "first_child_fingerprint": "9f816ed241f0994314ef138902efc57b08577ca4a8cdcc1e7784676fbeb1f50b",
+    "initial_remaining_seconds": 71.97,
+    "stale_write_rejected": true,
     "passed": true,
-    "completed_version_survived": true,
-    "instance_survived": true,
-    "recovered_score": 25.2
+    "completed_child_unchanged": true,
+    "approved_plan_survived": true,
+    "completed_versions_survived": true,
+    "budget_not_reset": true,
+    "final_remaining_seconds": 71.73,
+    "concurrent_pollers": 5,
+    "url": "https://planning-final---nightshift-pr6kfk2gya-uc.a.run.app"
   },
   "browser": {
     "upload": true,
     "solve": true,
     "explanation": true,
-    "preview": true,
-    "adopt": true,
-    "download_event": true,
+    "adopt_and_reload": true,
+    "five_recovery_comparison": true,
+    "cross_scenario_score_labels": true,
+    "validated_export_link": true,
     "console_errors": 0
   },
   "official_validator_verified": false,
   "previous_release": {
-    "revision": "nightshift-00005-xil",
-    "image_digest": "sha256:d270c8e5ffc0ee4ec5aeea9dcd5e390b463fa296d91ebcdca51e9f8c6bc8c0a8",
-    "build_id": "d1328cb7-15b9-4f78-8106-aebe25d6837b"
+    "revision": "nightshift-00007-map",
+    "image_digest": "sha256:b9d9ef57e2525e22d57b6b12be3aa175e02b0a93c94c74d0ea0bcf36ed378dd1",
+    "build_id": "0fb9bf76-634c-401a-806b-e6731532fc88",
+    "scores": {
+      "A": 25.2,
+      "B": 30,
+      "C": 25.2
+    },
+    "runtime": {
+      "cpu": 2,
+      "memory": "4Gi",
+      "min_instances": 1,
+      "max_instances": 1,
+      "concurrency": 20,
+      "cpu_throttling": false
+    },
+    "tests_passed": 212
   },
-  "tests_passed": 212,
+  "tests_passed": 243,
   "chat": {
     "provider": "vertex",
     "model": "gemini-3.8-flash",
@@ -116,45 +141,177 @@
       "revision": "nightshift-00003-lah",
       "image_digest": "sha256:bcb37a2d3831e9b6a7b283b18f2053e9af976f27c11db119cd205d018e330950",
       "build_id": "dab83326-39a6-4849-9212-bcd1babe6a10"
+    },
+    {
+      "revision": "nightshift-00007-map",
+      "image_digest": "sha256:b9d9ef57e2525e22d57b6b12be3aa175e02b0a93c94c74d0ea0bcf36ed378dd1",
+      "build_id": "0fb9bf76-634c-401a-806b-e6731532fc88",
+      "scores": {
+        "A": 25.2,
+        "B": 30,
+        "C": 25.2
+      },
+      "runtime": {
+        "cpu": 2,
+        "memory": "4Gi",
+        "min_instances": 1,
+        "max_instances": 1,
+        "concurrency": 20,
+        "cpu_throttling": false
+      },
+      "tests_passed": 212
     }
   ],
   "dataset_verification": {
-    "datasets": 10,
+    "local_matrix": "testdata/results/scoring-fix/report.json",
     "local_checks_passed": 30,
-    "hosted_checks_passed": 30,
-    "feasible_results_with_expected_optimal_score": 54,
-    "expected_infeasible_results": 6,
-    "report": "testdata/TEST_RESULTS.md",
-    "post_fix_run": {
-      "dataset": "09_double_network",
-      "scenario": "C",
-      "passed": true,
-      "run_id": "b82905d13c454ea9af82e903da4535aa",
-      "solver_status": "OPTIMAL",
-      "elapsed_seconds": 53.7,
-      "score": 50.4,
-      "bound": 50.4,
-      "coverage": 100.0,
-      "optimal": true,
-      "proven_infeasible": false,
-      "primary_optimal": true,
-      "independent_expected_score": 50.4,
-      "export_verified": true,
-      "wall_seconds": 56.05
-    },
-    "public_smoke": {
-      "public_root": true,
+    "hosted_large_and_infeasible": {
+      "mode": "hosted",
+      "started_at": "2026-09-19T05:28:40.753676+00:00",
+      "budget_seconds": 90,
+      "url": "https://planning-check---nightshift-pr6kfk2gya-uc.a.run.app",
+      "local_solver_threads": null,
+      "runs": [
+        {
+          "dataset": "09_double_network",
+          "scenario": "A",
+          "passed": true,
+          "run_id": "5ad53fb973bc440d81f0a98b085407b9",
+          "solver_status": "FEASIBLE",
+          "elapsed_seconds": 90.06,
+          "score": 275.8,
+          "bound": 275.8,
+          "coverage": 100.0,
+          "optimal": false,
+          "proven_infeasible": false,
+          "primary_optimal": true,
+          "independent_expected_score": 275.8,
+          "export_verified": true,
+          "wall_seconds": 93.77
+        },
+        {
+          "dataset": "09_double_network",
+          "scenario": "B",
+          "passed": true,
+          "run_id": "9426a9cf230b4c8c9fb27cc276572c19",
+          "solver_status": "FEASIBLE",
+          "elapsed_seconds": 90.07,
+          "score": 60,
+          "bound": 60.0,
+          "coverage": 100.0,
+          "optimal": false,
+          "proven_infeasible": false,
+          "primary_optimal": true,
+          "independent_expected_score": 60,
+          "export_verified": true,
+          "wall_seconds": 95.88
+        },
+        {
+          "dataset": "09_double_network",
+          "scenario": "C",
+          "passed": true,
+          "run_id": "0af78a450edc40d8808f657770d1bf60",
+          "solver_status": "FEASIBLE",
+          "elapsed_seconds": 90.08,
+          "score": 125.4,
+          "bound": 125.4,
+          "coverage": 100.0,
+          "optimal": false,
+          "proven_infeasible": false,
+          "primary_optimal": true,
+          "independent_expected_score": 125.4,
+          "export_verified": true,
+          "wall_seconds": 93.85
+        },
+        {
+          "dataset": "10_impossible_workload",
+          "scenario": "A",
+          "passed": true,
+          "run_id": "29534d99db1a4fc291037e77ea75c7e6",
+          "solver_status": "INFEASIBLE",
+          "elapsed_seconds": 0.0,
+          "score": null,
+          "bound": null,
+          "coverage": null,
+          "optimal": false,
+          "primary_optimal": false,
+          "proven_infeasible": true,
+          "export_blocked": true,
+          "wall_seconds": 2.88
+        },
+        {
+          "dataset": "10_impossible_workload",
+          "scenario": "B",
+          "passed": true,
+          "run_id": "474c15e6570042c79d13811df3a500f1",
+          "solver_status": "INFEASIBLE",
+          "elapsed_seconds": 0.01,
+          "score": null,
+          "bound": null,
+          "coverage": null,
+          "optimal": false,
+          "primary_optimal": false,
+          "proven_infeasible": true,
+          "export_blocked": true,
+          "wall_seconds": 2.83
+        },
+        {
+          "dataset": "10_impossible_workload",
+          "scenario": "C",
+          "passed": true,
+          "run_id": "1cef356f54b449fa851396f1a1400c73",
+          "solver_status": "INFEASIBLE",
+          "elapsed_seconds": 0.0,
+          "score": null,
+          "bound": null,
+          "coverage": null,
+          "optimal": false,
+          "primary_optimal": false,
+          "proven_infeasible": true,
+          "export_blocked": true,
+          "wall_seconds": 2.99
+        }
+      ],
       "health": {
         "ok": true,
         "validation": "local",
         "chat_configured": true,
         "chat_provider": "vertex",
         "chat_model": "gemini-3.8-flash"
-      },
-      "saved_run_survived_promotion": true,
-      "score": 50.4,
-      "coverage": 100,
-      "genuine_missing_run_http": 404
+      }
+    },
+    "four_cpu_large_c": {
+      "mode": "hosted",
+      "started_at": "2026-09-19T05:35:08.017867+00:00",
+      "budget_seconds": 90,
+      "url": "https://planning-four---nightshift-pr6kfk2gya-uc.a.run.app",
+      "local_solver_threads": null,
+      "runs": [
+        {
+          "dataset": "09_double_network",
+          "scenario": "C",
+          "passed": true,
+          "run_id": "33534c68786e4981aecc92298f054122",
+          "solver_status": "OPTIMAL",
+          "elapsed_seconds": 30.9,
+          "score": 125.4,
+          "bound": 125.4,
+          "coverage": 100.0,
+          "optimal": true,
+          "proven_infeasible": false,
+          "primary_optimal": true,
+          "independent_expected_score": 125.4,
+          "export_verified": true,
+          "wall_seconds": 33.71
+        }
+      ],
+      "health": {
+        "ok": true,
+        "validation": "local",
+        "chat_configured": true,
+        "chat_provider": "vertex",
+        "chat_model": "gemini-3.8-flash"
+      }
     }
   },
   "storage_generation_race_regression": {
@@ -192,5 +349,95 @@
     "runtime_settings_preserved": true,
     "api_tests_passed": 38,
     "frontend_build_passed": true
+  },
+  "rule_version": "ps1-local-1.2",
+  "planning_verification": {
+    "url": "https://planning-four---nightshift-pr6kfk2gya-uc.a.run.app",
+    "runs": {
+      "A": {
+        "id": "948866fe35a14c7885866dc884afe5c4",
+        "score": 137.9,
+        "seconds": 11.84
+      },
+      "B": {
+        "id": "32504a1ad9f54615a1012b10ddccaaf0",
+        "score": 30,
+        "seconds": 9.03
+      },
+      "C": {
+        "id": "11cc41496aac40d9bccac51cd2aded22",
+        "score": 62.7,
+        "seconds": 12.6
+      }
+    },
+    "checks": [
+      "public A: score 137.9, full coverage, exact three-CSV export",
+      "public B: score 30, full coverage, exact three-CSV export",
+      "public C: score 62.7, full coverage, exact three-CSV export",
+      "Vertex explanations with evidence; solves do not auto-adopt",
+      "request assessment, cache, counteroffer, atomic acceptance, rejection and stale approval",
+      "five policies, shared budget, inherited bookings, separate scores and 300s improvement",
+      "chat preview polling and explicit adoption boundary"
+    ],
+    "health": {
+      "ok": true,
+      "validation": "local",
+      "chat_configured": true,
+      "chat_provider": "vertex",
+      "chat_model": "gemini-3.8-flash"
+    },
+    "chat_mode": "vertex",
+    "instance_id": "b7ac52e39baa6688",
+    "approved_run_id": "6bc2d52331e7362396b93fd2f2a47a1c--0",
+    "request_id": "REQ-fed75da7adc83b8cbb1cab2a",
+    "batch_id": "3dc31338d7fa3023c1b14a0ce44acf85",
+    "improve_id": "35f872c4027049f193c39cbe8cfebe16"
+  },
+  "public_verification": {
+    "url": "https://nightshift-717753975344.us-central1.run.app",
+    "revision": "nightshift-planning-v7",
+    "traffic_percent": 100,
+    "temporary_tags_removed": true,
+    "cpu": 4,
+    "solver_threads": 4,
+    "memory": "4Gi",
+    "min_instances": 1,
+    "max_instances": 1,
+    "health": {
+      "ok": true,
+      "validation": "local",
+      "chat_configured": true,
+      "chat_provider": "vertex",
+      "chat_model": "gemini-3.8-flash"
+    },
+    "frontend_matches_local": true,
+    "frontend_sha256": "ea332cb94482a6da376ae580e0654ed37550c0b83719244aa40abd80e271d6c2",
+    "completed_runs_survived": true,
+    "approved_plan_survived": true
+  },
+  "security_verification": {
+    "entries": 500,
+    "server_errors": 0,
+    "detected_patterns": {
+      "bearer": false,
+      "private_key": false,
+      "api_key": false,
+      "uploaded_header": false
+    },
+    "bucket_anonymous_status": 403
+  },
+  "remote_frontend_commit": "edaea99dd3937a9d6b477a0df08f5955dad6d9a4",
+  "build_input_count": 76,
+  "build_manifest_sha256": "70a313481c75278ed2bd0adeeb0ba5060359f4ad6c8d1c5edf0f39cd68d7dd8b",
+  "frontend_checks": {
+    "production_build": true,
+    "adapter": true,
+    "render": true,
+    "upload_handoff": true
+  },
+  "rollback": {
+    "same_image_revision": "nightshift-planning-v6",
+    "previous_release_revision": "nightshift-00007-map",
+    "previous_release_limitations": "Old closure/scoring rules and no planning workflows; prefer the corrected image."
   }
 }

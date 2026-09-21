@@ -18,6 +18,12 @@ class FakeBucket:
     def blob(self, key):
         return FakeBlob(self, key)
 
+    def list_blobs(self, prefix, **kwargs):
+        from types import SimpleNamespace
+        if self.fail:
+            raise ServiceUnavailable("offline")
+        return [SimpleNamespace(name=name) for name in self.objects if name.startswith(prefix)]
+
 
 class FakeBlob:
     def __init__(self, bucket, key):
@@ -204,3 +210,38 @@ def test_continuous_generation_churn_returns_storage_error_not_false_absence(sto
     with pytest.raises(StorageError, match='changed while reading'):
         store.get('runs/job')
     assert len(attempts) == 5
+
+
+def test_batch_lease_fences_children_and_control_cas(storage):
+    store, bucket, now = storage
+    children = [{'id': 'batch--0', 'status': 'completed', 'schedule': {'checked': True}},
+                {'id': 'batch--1', 'status': 'running', 'allocated_seconds': 18}]
+    store.put('runs/batch', {'kind': 'batch', 'status': 'queued', 'children': children, 'remaining_seconds': 54})
+    old = store.claim_run('batch')
+    now[0] += 61
+    with ThreadPoolExecutor(4) as pool:
+        claims = list(pool.map(lambda _: Store(bucket=bucket, clock=lambda: now[0]).claim_run('batch'), range(4)))
+    owners = [c for c in claims if c]
+    assert len(owners) == 1
+    with pytest.raises(LeaseLost):
+        old.update({'children': []})
+    assert owners[0].snapshot()['children'] == children
+    assert owners[0].snapshot()['remaining_seconds'] == 54
+    store.put('plans/book', {'approved': 'a', 'commitments': []})
+    _, generation = store._read('plans/book')
+    Store(bucket=bucket).update('plans/book', lambda old: {'approved': 'b', 'commitments': ['request1']})
+    with pytest.raises(Conflict):
+        store._write('plans/book', {'approved': 'c', 'commitments': []}, generation)
+    assert store.get('plans/book') == {'approved': 'b', 'commitments': ['request1']}
+
+
+def test_listing_uses_authoritative_bucket_and_surfaces_failure(storage):
+    store, bucket, _ = storage
+    store.put('instances/saved', {'saved': True})
+    local = Store()
+    local.put('instances/local-only', {'saved': False})
+    assert store.keys('instances') == ['instances/saved']
+    assert 'instances/local-only' in local.keys('instances')
+    bucket.fail = True
+    with pytest.raises(StorageError):
+        store.keys('instances')

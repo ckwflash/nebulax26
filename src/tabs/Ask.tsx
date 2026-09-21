@@ -3,7 +3,8 @@
 
 import { useState } from "react";
 import { api } from "../api/client";
-import type { ChatEvidence } from "../api/types";
+import type { ChatEvidence, Run } from "../api/types";
+import { RunCard } from "../components/RunCard";
 import { usePlanState } from "../state/plan";
 
 interface Msg {
@@ -12,6 +13,8 @@ interface Msg {
   evidence?: ChatEvidence[];
   mode?: string;
   notice?: string | null;
+  preview?: Run | null;
+  baseline?: Run;
 }
 
 export function Ask() {
@@ -36,15 +39,33 @@ export function Ask() {
     setQ("");
     setBusy(true);
     try {
-      const reply = await api.chat({ instance_id: instance.id, run_id: run.id, message: text });
+      const reply = await api.chat({
+        instance_id: instance.id,
+        run_id: run.id,
+        message: text,
+      });
       setMsgs((m) => [
         ...m,
-        { kind: "answer", text: reply.answer, evidence: reply.evidence, mode: reply.mode, notice: reply.notice },
+        {
+          kind: "answer",
+          text: reply.answer,
+          evidence: reply.evidence,
+          mode: reply.mode,
+          notice: reply.notice,
+          preview: reply.preview,
+          baseline: run,
+        },
       ]);
     } catch (e) {
       setMsgs((m) => [
         ...m,
-        { kind: "error", text: e instanceof Error ? e.message : "The planning service did not answer." },
+        {
+          kind: "error",
+          text:
+            e instanceof Error
+              ? e.message
+              : "The planning service did not answer.",
+        },
       ]);
     } finally {
       setBusy(false);
@@ -57,8 +78,8 @@ export function Ask() {
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <h1 className="h1">Ask RailPlan</h1>
           <span className="muted small">
-            Ask about this plan in plain English · answers and evidence come from the planning service, computed from
-            the run you are looking at
+            Ask about this plan in plain English · answers and evidence come
+            from the planning service, computed from the run you are looking at
           </span>
         </div>
       </div>
@@ -73,7 +94,10 @@ export function Ask() {
           alignItems: "stretch",
         }}
       >
-        <div className="card" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <div
+          className="card"
+          style={{ display: "flex", flexDirection: "column", minHeight: 0 }}
+        >
           <div
             style={{
               flex: 1,
@@ -86,8 +110,10 @@ export function Ask() {
           >
             {!msgs.length && (
               <div className="callout c-blue">
-                Ask about any contract (C001–C0{plan?.contracts.length ?? 14}), activity, location or week in this
-                demand book. Answers are grounded in scenario {plan?.scenario} and cite the rows they came from.
+                Ask about any contract (C001–C0{plan?.contracts.length ?? 14}),
+                activity, location or week in this demand book. Answers are
+                grounded in scenario {plan?.scenario} and cite the rows they
+                came from.
               </div>
             )}
 
@@ -97,21 +123,52 @@ export function Ask() {
                   {m.text}
                 </div>
               ) : m.kind === "error" ? (
-                <div className="callout c-red" key={i} style={{ alignSelf: "flex-start", maxWidth: "82%" }}>
+                <div
+                  className="callout c-red"
+                  key={i}
+                  style={{ alignSelf: "flex-start", maxWidth: "82%" }}
+                >
                   {m.text}
                 </div>
               ) : (
                 <div className="msg-a" key={i} style={{ maxWidth: "100%" }}>
-                  <span style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.5 }}>{m.text}</span>
+                  <span
+                    style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.5 }}
+                  >
+                    {m.text}
+                  </span>
+                  {m.preview && (
+                    <RunCard candidate={m.preview} baseline={m.baseline} />
+                  )}
                   {m.notice && <span className="small muted">{m.notice}</span>}
                   {!!m.evidence?.length && (
-                    <div style={{ display: "grid", gridTemplateColumns: "104px 1fr", gap: "8px 12px", fontSize: 13 }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "104px 1fr",
+                        gap: "8px 12px",
+                        fontSize: 13,
+                      }}
+                    >
                       <span className="card-h" style={{ paddingTop: 2 }}>
                         Evidence
                       </span>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 5,
+                        }}
+                      >
                         {m.evidence.map((e) => (
-                          <span key={e.id} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                          <span
+                            key={e.id}
+                            style={{
+                              display: "flex",
+                              gap: 8,
+                              alignItems: "baseline",
+                            }}
+                          >
                             <span style={{ color: "#1d5fd1" }}>•</span>
                             <span style={{ fontWeight: 600 }}>{e.title}</span>
                             <span className="muted">{e.detail}</span>
@@ -122,7 +179,8 @@ export function Ask() {
                         Source
                       </span>
                       <span className="small muted">
-                        {m.mode} · scenario {plan?.scenario} · {plan?.solverStatus}
+                        {m.mode} · scenario {plan?.scenario} ·{" "}
+                        {plan?.solverStatus}
                       </span>
                     </div>
                   )}
@@ -157,17 +215,38 @@ export function Ask() {
               }}
               aria-label="Question"
             />
-            <button className="btn btn-primary" onClick={() => ask(q)} disabled={busy}>
+            <button
+              className="btn btn-primary"
+              onClick={() => ask(q)}
+              disabled={busy}
+            >
               {busy ? "Asking…" : "Ask"}
             </button>
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, minHeight: 0 }}>
-          <div className="card" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            minHeight: 0,
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              padding: 16,
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <span className="h2">Common questions</span>
-              <span className="small muted">Built from this plan · tap one to ask it</span>
+              <span className="small muted">
+                Built from this plan · tap one to ask it
+              </span>
             </div>
             {suggestions.map((t) => (
               <button

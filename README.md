@@ -2,6 +2,8 @@
 
 A working railway access planner for NebulaX PS1: CP-SAT scheduling, independent local validation, timeline and capacity views, conversational explanations, immutable what-if previews, and CSV exports.
 
+For the required deliverables and a clean source archive, see [the submission checklist](docs/SUBMISSION.md). Run `python3 scripts/package_submission.py` to create `release/nightshift-source.zip` from the current files, including uncommitted source changes.
+
 ## Run locally
 
 Requirements: Python 3.11+, Node 22+, and `uv`.
@@ -48,15 +50,15 @@ uv run python -m trackaccess validate --submission outputs/A
 
 | Scenario | Local penalty | Contract-overrun days | ECLO accesses | Extra location-nights |
 |---|---:|---:|---:|---:|
-| A | 25.2 | 21 | 0 | 0 |
+| A | 137.9 | 28 | 0 | 0 |
 | B | 30.0 | 0 | 6 | 0 |
-| C | 25.2 | 21 | 0 | 0 |
+| C | 62.7 | 7 | 4 | 0 |
 
-All three reach proven optima in the implemented local model. A improves the reference sample's locally recomputed 48.3 penalty by 47.8%. The public instance solves in a few seconds on the development machine; performance on other hardware/instances varies. The solver's status/bound and analytical bounds are separately reported.
+All three reach proven optima in the implemented local model. A matches the reference sample's corrected 137.9 penalty. Contract delay is charged using the sum of all member activity weights, including activities that finished early. The public instance solves in a few seconds on the development machine; performance on other hardware/instances varies. The solver's status/bound and analytical bounds are separately reported.
 
 `outputs/{A,B,C}` contains the required three CSVs plus a local `report.json` and `timing_witness.json`. The download ZIP contains **only the three required CSVs**. `submissions/public-results.zip` packages all three scenario folders for submission. Keep the local sidecars for reproducibility, but do not add them to a three-file submission.
 
-**No official validator is supplied.** The reference sample passes structural checks; its location-local labels cannot independently establish global timing. Nightshift-generated schedules retain an auxiliary timing witness. See [the rule ledger](docs/RULES.md) for interpretations and limitations; local checks are not official acceptance.
+**No official validator is supplied.** The checker now reproduces all 49 closure errors reported for the rejected A export on September 19. It checks weekly closure groups directly from the three CSVs, and the supplied reference passes those checks. Nightshift-generated schedules also retain an auxiliary timing witness. The earlier 25.2 A/C results used an incorrect closure model. The subsequent A=32.2/C=26.1 results also used incorrect per-activity delay scoring. Both are superseded by the table above; the unchanged closure-corrected A ZIP scores 137.9 under the corrected contract-based formula. See [the rule ledger](docs/RULES.md) for interpretations and limitations; local checks are not official acceptance.
 
 ## Verification
 
@@ -79,7 +81,7 @@ The demo is live at [Nightshift on Google Cloud Run](https://nightshift-71775397
 - Three-minute demonstration outline: `docs/DEMO.md`
 - CI: `.gitlab-ci.yml`
 
-The original data-pack README and participant brief remain intact. A GitLab remote and published YouTube video still need the owner's destination/account; this checkout originally had no Git repository.
+The original data-pack README and participant brief remain intact. The configured origin is on GitHub; the brief asks for a GitLab repository URL. A GitLab submission URL and published YouTube video still need to be supplied.
 
 
 ## Additional testing datasets

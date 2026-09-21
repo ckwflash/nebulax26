@@ -49,13 +49,13 @@ else:
             break
         time.sleep(1)
     assert current['status'] == 'completed', current.get('error', current['status'])
-    assert current['validation']['feasible'] and current['validation']['score'] == 25.2
+    assert current['validation']['feasible'] and current['validation']['score'] == 137.9
     original = get('/api/runs/' + fixture['completed_run_id'])
     assert original['schedule'] == fixture['schedule']
     assert get('/api/instances/' + report['instance_id'])['id'] == report['instance_id']
     persisted = json.loads(bucket.blob('runs/' + fixture['run_id'] + '.json').download_as_bytes())
     assert persisted['status'] == 'completed' and '_lease' not in persisted
     fixture.pop('schedule')
-    fixture.update(passed=True, completed_version_survived=True, instance_survived=True, recovered_score=25.2)
+    fixture.update(passed=True, completed_version_survived=True, instance_survived=True, recovered_score=137.9)
     path.write_text(json.dumps(fixture, indent=2)+'\n')
     print(json.dumps(fixture, indent=2))

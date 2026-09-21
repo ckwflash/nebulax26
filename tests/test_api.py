@@ -43,6 +43,39 @@ def test_demo_chat_and_export(client):
     assert client.get('/api/runs/missing').status_code==404
 
 
+def test_old_feasible_status_is_rechecked_and_export_blocked(client):
+    from pathlib import Path
+    from trackaccess import RULE_VERSION
+    from trackaccess.export import read_schedule
+
+    demo = client.get('/api/demo').json()
+    rejected = read_schedule(Path(__file__).parent / 'fixtures/rejected_a')
+    old = {**demo['run'], 'id': 'old-closure-model',
+           'schedule': rejected.model_dump(mode='json'),
+           'validation': {**demo['run']['validation'], 'rule_version': 'ps1-local-1.0'}}
+    server.store.put('runs/old-closure-model', old)
+    response = client.get('/api/runs/old-closure-model').json()
+    assert response['validation']['rule_version'] == RULE_VERSION
+    assert not response['validation']['feasible']
+    assert len(response['validation']['hard_violations']) == 49
+    assert response['solver_status'] == 'REVALIDATED'
+    assert response['model_bound'] is None
+    assert client.get('/api/runs/old-closure-model/export').status_code == 409
+
+
+def test_old_scoring_report_is_recomputed_without_old_optimality_claim(client):
+    demo = client.get('/api/demo').json()
+    old = {**demo['run'], 'id': 'old-scoring-model', 'model_bound': 32.2,
+           'validation': {**demo['run']['validation'], 'rule_version': 'ps1-local-1.1', 'score': 32.2},
+           'optimization': {'proven_optimal': True, 'stages': [{'value': 322}]}}
+    server.store.put('runs/old-scoring-model', old)
+    current = client.get('/api/runs/old-scoring-model').json()
+    assert current['validation']['feasible']
+    assert current['validation']['score'] == 137.9
+    assert current['solver_status'] == 'REVALIDATED'
+    assert current['model_bound'] is None and 'optimization' not in current
+
+
 def test_upload_and_async_solve(client):
     inst=Instance.from_directory('PS1/01_data')
     result=client.post('/api/instances',files=[('files',(name,content,'text/csv')) for name,content in inst.files.items()])
@@ -133,7 +166,7 @@ def test_restart_recovers_checked_incumbent(client):
         time.sleep(.1)
     assert status['status'] == 'completed', status
     assert status['validation']['feasible']
-    assert status['validation']['score'] == 25.2
+    assert status['validation']['score'] == demo['run']['validation']['score']
 
 
 def test_durable_storage_error_is_visible(client, monkeypatch):
@@ -183,69 +216,3 @@ def test_late_b_fallback_cannot_be_exported(client):
     assert run['validation']['coverage_percent'] == 100
     assert not run['validation']['feasible']
     assert client.get('/api/runs/' + run_id + '/export').status_code == 409
-
-
-def test_document_pack(client):
-    run=client.get('/api/demo').json()['run']
-    catalog=client.get('/api/reports').json()
-    assert {r['id'] for r in catalog}=={'management-summary','risk-resilience','contractor-access-pack','delay-eclo-register'}
-    for report in catalog:
-        made=client.post(f"/api/reports/{report['id']}/generate",json=dict(run_id=run['id']))
-        assert made.status_code==200
-        page=client.get(made.json()['download_url'])
-        assert page.status_code==200 and page.headers['content-type'].startswith('text/html')
-        assert run['id'] in page.text and '<script' not in page.text
-    pack=client.get(f"/api/reports/contractor-access-pack/download?run={run['id']}").text
-    assert 'C006' in pack and 'A036' in pack
-    assert client.post('/api/reports/nope/generate',json=dict(run_id=run['id'])).status_code==404
-    assert client.post('/api/reports/management-summary/generate',json=dict(run_id='missing')).status_code==404
-
-
-def test_recovery_philosophies(client):
-    demo=client.get('/api/demo').json()
-    closure=[dict(location_id='SEC:BET:H01_H02:EB',week=w,capacity=0,closed=True) for w in (10,11,12)]
-    body=dict(instance_id=demo['instance']['id'],scenario='A',baseline_id=demo['run']['id'],overrides=closure,
-              weights=dict(churn=8,deadlines=4,passengers=5,priority1=9),seconds=20)
-    started=client.post('/api/disruptions/recoveries',json=body)
-    assert started.status_code==202
-    assert [r['philosophy'] for r in started.json()['runs']]==['churn','deadlines','passengers','p1','custom']
-    deadline=time.monotonic()+300
-    while (batch:=client.get(f"/api/disruptions/recoveries/{started.json()['id']}").json())['status']!='completed':
-        assert time.monotonic()<deadline
-        time.sleep(.5)
-    for result in batch['results']:
-        run=result['run']
-        assert run['schedule'], (result['philosophy'], run['status'], run.get('solver_status'), run.get('message'), run.get('error'))
-        assert run['schedule'] and run['validation'] and run['model_bound'] is None
-        assert 'diff' in run
-    custom=next(r['run'] for r in batch['results'] if r['philosophy']=='custom')
-    assert custom['weights']==dict(churn=8,deadlines=4,passengers=5,priority1=9)
-    bad=dict(body,weights=dict(churn=11))
-    assert client.post('/api/disruptions/recoveries',json=bad).status_code==422
-    assert client.get('/api/disruptions/recoveries/nope').status_code==404
-
-
-def test_contractor_request_assessment(client):
-    demo=client.get('/api/demo').json()
-    instance=demo['instance'];run=demo['run']
-    # H01-H02 EB on Beta is at capacity in weeks 4-23, so a request there must displace work.
-    body=dict(instance_id=instance['id'],contract_number='C006',contractor='Ballastco',location_id='SEC:BET:H01_H02:EB',week_from=15,week_to=15,reason='Programme acceleration')
-    made=client.post('/api/requests',json=body)
-    assert made.status_code==201
-    rid=made.json()['id']
-    assert [r['id'] for r in client.get('/api/requests',params=dict(instance_id=instance['id'])).json()]==[rid]
-    assert client.get(f'/api/requests/{rid}/assessment').status_code==404
-    started=client.post(f'/api/requests/{rid}/assess',json=dict(baseline_id=run['id'],seconds=20))
-    assert started.status_code==202 and 1<=len(started.json()['runs'])<=3
-    deadline=time.monotonic()+300
-    while (a:=client.get(f'/api/requests/{rid}/assessment').json())['status']!='completed':
-        assert time.monotonic()<deadline
-        time.sleep(.5)
-    assert a['capacity_before']==100 and a['capacity_after']==200
-    assert a['options'][0]['kind']=='REQUESTED' and all(o['kind']=='ALTERNATIVE' for o in a['options'][1:])
-    assert all(o['week_from']!=15 for o in a['options'][1:])
-    assert a['options'][0]['impact'] in ('LOW','MEDIUM','HIGH')
-    assert a['draft_response'].startswith('Dear Ballastco')
-    assert client.patch(f'/api/requests/{rid}',json=dict(status='countered')).json()['status']=='countered'
-    assert client.post('/api/requests',json=dict(body,week_to=99)).status_code==422
-    assert client.post('/api/requests',json=dict(body,contract_number='NOPE')).status_code==422

@@ -41,7 +41,7 @@ assert request('GET', '/api/health').json()['ok']
 with Path('PS1.zip').open('rb') as stream:
     instance = request('POST', '/api/instances', files={'files': ('PS1.zip', stream, 'application/zip')}).json()
 results = {}
-for scenario, score in [('A', 25.2), ('B', 30), ('C', 25.2)]:
+for scenario, score in [('A', 137.9), ('B', 30), ('C', 62.7)]:
     run = wait(request('POST', '/api/runs', json={'instance_id': instance['id'], 'scenario': scenario, 'seconds': 60}).json())
     assert run['validation']['score'] == score
     assert run['validation']['coverage_percent'] == 100

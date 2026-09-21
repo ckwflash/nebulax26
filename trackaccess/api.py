@@ -3,7 +3,6 @@ from __future__ import annotations
 import io
 import json
 import os
-import re
 import threading
 import time
 import zipfile
@@ -13,17 +12,19 @@ from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import JSONResponse, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
+from . import RULE_VERSION
 from .domain import FILES, InputError, Instance, Override, Scenario, Schedule
 from .export import export_zip, read_schedule
 from .model import chat_config
-from .reports import CATALOG, REPORT_IDS, render as render_report
 from .solver import solve
-from .store import LeaseLost, StorageError, Store
+from .store import Conflict, LeaseLost, StorageError, Store
+from .planning import Booking, Philosophy, Weights, check_planning, objective_values, run_diff
 from .validation import validate
 
 app = FastAPI(title="Nightshift", version="0.1.0")
@@ -49,8 +50,24 @@ def run_for(run_id):
         run = store.get(f"runs/{run_id}")
     except ValueError:
         run = None
+    if not run and '--' in run_id:
+        parent_id, index = run_id.rsplit('--', 1)
+        try:
+            parent = store.get(f'runs/{parent_id}')
+        except ValueError:
+            parent = None
+        if parent and parent.get('kind') == 'batch' and index.isdigit():
+            children = parent.get('children', [])
+            if int(index) < len(children):
+                run = children[int(index)]
     if not run:
         raise HTTPException(404, "Schedule version not found.")
+    # Persisted feasibility belongs to the rules that checked it. Old exports
+    # must not retain a green status after a safety-rule correction.
+    if run.get('schedule') and (run.get('validation') or {}).get('rule_version') != RULE_VERSION:
+        run = {**run, 'validation': checked_run(run)}
+        run.update(solver_status='REVALIDATED', model_bound=None)
+        run.pop('optimization', None)
     return run
 
 
@@ -65,22 +82,27 @@ def health():
 def demo():
     instance = Instance.from_directory(BASE / "PS1/01_data")
     instance.name = "NebulaX · public demand book"
-    store.put(f"instances/{instance.id}", {"files": instance.files, "name": instance.name})
+    from .library import save_instance, register_run
+    save_instance(instance)
     seed = BASE / "outputs/A"
     schedule = read_schedule(seed if (seed / "SCHEDULE_ACCESS.csv").exists() else BASE / "PS1/03_submission_sample")
     result = validate(instance, schedule)
-    run_id = f"reference-{instance.id}" if not result["feasible"] else f"public-A-{instance.id}"
+    run_id = (f"reference-{instance.id}" if not result["feasible"] else f"public-A-{instance.id}") + '-' + RULE_VERSION.replace('.', '-')
     metadata = json.loads((seed / "report.json").read_text()) if result["feasible"] and (seed / "report.json").exists() else {}
     run = {"id": run_id, "instance_id": instance.id, "scenario": "A", "status": "completed", "label": "Public A" if result["feasible"] else "Reference A", "created_at": now(), "overrides": [], "baseline_id": None,
            "schedule": schedule.model_dump(mode="json"), "validation": result, "solver_status": "PRECOMPUTED" if result["feasible"] else "REFERENCE", "elapsed_seconds": 0, "model_bound": None}
     if metadata:
         run.update(solver_status=metadata.get("solver_status", "PRECOMPUTED"), elapsed_seconds=metadata.get("elapsed_seconds", 0), model_bound=metadata.get("model_bound"))
-    store.put(f"runs/{run_id}", run)
+    run = store.update(f"runs/{run_id}", lambda old: old or run)
+    register_run(run)
+    from .workflows import initialize_plan
+    initialize_plan(instance.id, run)
     return {"instance": instance.summary(), "run": run}
 
 
 @app.post("/api/instances")
-async def upload_instance(files: list[UploadFile] = File(...)):
+async def upload_instance(files: list[UploadFile] = File(...), name: str = Form(default='', max_length=120)):
+    display_name = name.strip()
     if not 1 <= len(files) <= 8:
         raise HTTPException(422, "Upload eight CSVs or one ZIP containing them.")
     texts = {}
@@ -109,25 +131,18 @@ async def upload_instance(files: list[UploadFile] = File(...)):
                 if name not in FILES.values() or name in texts:
                     raise InputError(f"Unexpected or duplicate file: {name}.")
                 texts[name] = blob.decode("utf-8-sig")
-        instance = Instance(texts, "Uploaded demand book")
+        label = display_name or (Path(files[0].filename or '').stem if len(files) == 1 else 'Uploaded demand book')
+        instance = Instance(texts, label or 'Uploaded demand book')
     except (InputError, ValueError, UnicodeError, zipfile.BadZipFile) as exc:
         raise HTTPException(422, str(exc)) from exc
-    store.put(f"instances/{instance.id}", {"files": instance.files, "name": instance.name})
+    from .library import save_instance
+    instance = save_instance(instance, rename=bool(display_name))
     return instance.summary()
 
 
 @app.get("/api/instances/{instance_id}")
 def get_instance(instance_id: str):
     return instance_for(instance_id).summary()
-
-
-class Weights(BaseModel):
-    """Recovery priorities, 0..10 each; 5 is the official objective. See solver.WEIGHT_KEYS."""
-    model_config = ConfigDict(extra="forbid")
-    churn: int = Field(default=5, ge=0, le=10)
-    deadlines: int = Field(default=5, ge=0, le=10)
-    passengers: int = Field(default=5, ge=0, le=10)
-    priority1: int = Field(default=5, ge=0, le=10)
 
 
 class RunRequest(BaseModel):
@@ -138,7 +153,10 @@ class RunRequest(BaseModel):
     baseline_id: str | None = None
     overrides: list[Override] = Field(default_factory=list, max_length=100)
     label: str = Field(default="", max_length=100)
-    weights: Weights | None = None
+    bookings: list[Booking] = Field(default_factory=list, max_length=500)
+    philosophy: Philosophy | None = None
+    weights: Weights = Field(default_factory=Weights)
+    resume_from_id: str | None = None
 
 
 def now():
@@ -146,12 +164,108 @@ def now():
 
 
 def public_run(run):
-    return {key: value for key, value in run.items() if not key.startswith("_")}
+    def clean(value):
+        if isinstance(value, dict):
+            return {k: clean(v) for k, v in value.items() if not k.startswith("_")}
+        if isinstance(value, list):
+            return [clean(v) for v in value]
+        return value
+    return clean(run)
 
 
 @app.exception_handler(StorageError)
 async def storage_error_handler(request, exc):
     return JSONResponse(status_code=503, content={"detail": str(exc)})
+
+
+def checked_run(run, bookings=None):
+    instance = instance_for(run['instance_id'])
+    baseline = run_for(run['baseline_id']) if run.get('baseline_id') else None
+    return check_planning(instance, Schedule(**run['schedule']),
+                          validate(instance, Schedule(**run['schedule']), [Override(**o) for o in run.get('overrides', [])]),
+                          run.get('bookings', []) if bookings is None else bookings, run.get('philosophy'),
+                          Schedule(**baseline['schedule']) if baseline else None)
+
+
+def compute_run(run, cancelled, persist, budget=None):
+    instance = instance_for(run['instance_id'])
+    baseline_run = run_for(run['baseline_id']) if run.get('baseline_id') else None
+    baseline = Schedule(**baseline_run['schedule']) if baseline_run else None
+    resume = run_for(run['resume_from_id']) if run.get('resume_from_id') else None
+    incumbent = run.get('schedule') or (resume or {}).get('schedule')
+    if not incumbent and baseline:
+        retained = baseline.model_copy(deep=True)
+        retained.scenario = run['scenario']
+        for row in retained.results:
+            row.scenario = run['scenario']
+        incumbent = retained.model_dump(mode='json')
+    if incumbent:
+        candidate = {**run, 'schedule': incumbent}
+        checked = checked_run(candidate)
+        if checked['feasible']:
+            run.update(schedule=incumbent, validation=checked)
+        else:
+            incumbent = None
+            run.update(schedule=None, validation=None)
+    run.update(status='running', started_at=run.get('started_at') or now())
+    persist(public_run(run))
+    last_save = 0
+    checkpoint = None
+    # Keep storage latency outside CP-SAT’s wall-clock computation allowance.
+    # Coalesce progress while one fenced write is in flight; drain before completion.
+    checkpoints = ThreadPoolExecutor(max_workers=1, thread_name_prefix="checkpoint")
+    best = None
+    def rank(schedule, report):
+        return objective_values(instance, schedule, report, baseline, run.get('philosophy'), run.get('weights'))
+    if run.get('schedule') and run.get('validation', {}).get('feasible'):
+        best = (rank(Schedule(**run['schedule']), run['validation']), run['schedule'], run['validation'])
+
+    def progress(schedule, report, metrics):
+        nonlocal last_save, checkpoint
+        if cancelled.is_set():
+            return
+        run.update(schedule=schedule.model_dump(mode='json'), validation=report, **metrics)
+        if time.monotonic() - last_save > 1 and (checkpoint is None or checkpoint.done()):
+            if checkpoint is not None and checkpoint.exception() is not None:
+                cancelled.set()
+                return
+            checkpoint = checkpoints.submit(persist, public_run(run))
+            checkpoint.add_done_callback(lambda done: cancelled.set() if done.exception() is not None else None)
+            last_save = time.monotonic()
+
+    seconds = run['seconds'] if budget is None else budget
+    try:
+        if seconds <= 0:
+            result = {'schedule': run.get('schedule'), 'validation': run.get('validation'),
+                      'solver_status': 'FEASIBLE' if run.get('schedule') else 'UNKNOWN',
+                      'message': 'This option used its allocated budget before recovery. Improve it to continue.', 'elapsed_seconds': 0}
+        else:
+            result = solve(instance, run['scenario'], seconds, [Override(**o) for o in run['overrides']], baseline,
+                           progress, cancel_event=cancelled, bookings=run.get('bookings', []),
+                           philosophy=run.get('philosophy'), weights=run.get('weights'),
+                           warm_start=Schedule(**incumbent) if incumbent else None)
+    finally:
+        checkpoints.shutdown(wait=True)
+    if checkpoint is not None:
+        checkpoint.result()
+    if cancelled.is_set():
+        raise LeaseLost('Run ownership or storage became unavailable')
+    if not result.get('schedule') and run.get('schedule') and checked_run(run)['feasible']:
+        result.update(schedule=run['schedule'], validation=checked_run(run), solver_status='FEASIBLE',
+                      message='Retained the last complete checked incumbent.')
+    if best and (not result.get('validation') or not result['validation']['feasible'] or rank(Schedule(**result['schedule']), result['validation']) > best[0]):
+        result.update(schedule=best[1], validation=best[2], solver_status='FEASIBLE', message='Retained the better checked incumbent.')
+        if result.get('optimization'):
+            result['optimization']['proven_optimal'] = False
+            for i, stage in enumerate(result['optimization']['stages']):
+                stage['value'] = best[0][i]
+                stage['status'] = 'FEASIBLE'
+    run.update(result)
+    run['status'] = 'completed' if run.get('schedule') else 'no_solution'
+    if baseline_run and run.get('schedule'):
+        run['diff'] = run_diff(baseline, Schedule(**run['schedule']), baseline_run['validation'], run['validation'])
+    run['finished_at'] = now()
+    return public_run(run)
 
 
 def execute_run(run_id):
@@ -178,50 +292,17 @@ def execute_run(run_id):
 
         heartbeat_thread = threading.Thread(target=heartbeat, daemon=True)
         heartbeat_thread.start()
-        instance = instance_for(run["instance_id"])
-        overrides = [Override(**o) for o in run["overrides"]]
-        baseline_run = run_for(run["baseline_id"]) if run.get("baseline_id") else None
-        baseline_data = run.get("schedule") or (baseline_run or {}).get("schedule")
-        baseline = Schedule(**baseline_data) if baseline_data else None
-        if baseline:
-            retained = baseline.model_copy(deep=True)
-            retained.scenario = run["scenario"]
-            for row in retained.results:
-                row.scenario = run["scenario"]
-            checked = validate(instance, retained, overrides)
-            if checked["feasible"]:
-                run.update(schedule=retained.model_dump(mode="json"), validation=checked)
-        run.update(status="running", started_at=now())
-        lease.update(public_run(run))
-        last_save = 0
-
-        def progress(schedule, report, metrics):
-            nonlocal last_save
-            if cancelled.is_set():
-                return
-            run.update(schedule=schedule.model_dump(mode="json"), validation=report, **metrics)
-            if time.monotonic() - last_save > 1:
-                try:
-                    lease.update(public_run(run))
-                    last_save = time.monotonic()
-                except (StorageError, LeaseLost):
-                    cancelled.set()
-
-        result = solve(instance, run["scenario"], run["seconds"], overrides, baseline, progress, cancel_event=cancelled, weights=run.get("weights"))
-        if cancelled.is_set():
-            raise LeaseLost("Run ownership or storage became unavailable")
-        if not result["schedule"] and run.get("schedule"):
-            checked = validate(instance, Schedule(**run["schedule"]), overrides)
-            if checked["feasible"]:
-                result.update(schedule=run["schedule"], validation=checked, solver_status="FEASIBLE", message="Retained a previously checked incumbent after this search timed out.")
-        run.update(result)
-        run["status"] = "completed" if run.get("schedule") else "no_solution"
-        if baseline_run and run.get("schedule"):
-            before = {(r["activity_id"], r["week"], r["eclo"]) for r in baseline_run["schedule"]["access"]}
-            after = {(r["activity_id"], r["week"], r["eclo"]) for r in run["schedule"]["access"]}
-            run["diff"] = {"changed_activities": sorted({r[0] for r in before ^ after}), "removed_accesses": len(before - after), "added_accesses": len(after - before), "score_delta": round(run["validation"]["score"] - baseline_run["validation"]["score"], 1)}
-        stopped.set()
-        lease.update({**public_run(run), "finished_at": now()}, finish=True)
+        if run.get('kind') == 'batch':
+            from .workflows import execute_batch
+            execute_batch(run, lease, cancelled)
+        else:
+            def persist(changes):
+                if cancelled.is_set():
+                    raise LeaseLost('Run ownership was lost')
+                lease.update(changes)
+            completed = compute_run(run, cancelled, persist)
+            stopped.set()
+            lease.update(completed, finish=True)
     except (StorageError, LeaseLost):
         logging.getLogger(__name__).warning("Run %s paused; last durable checkpoint will be recovered", run_id)
     except Exception as exc:
@@ -230,7 +311,11 @@ def execute_run(run_id):
         if lease:
             try:
                 stopped.set()
-                lease.update({"status": "failed", "error": "The planner failed. Retry the run or inspect the demand book.", "finished_at": now()}, finish=True)
+                failed = {"status": "failed", "error": "The planner failed. Retry the run or inspect the demand book.", "finished_at": now()}
+                saved = lease.snapshot()
+                if saved.get('kind') == 'batch':
+                    failed['children'] = [{**c, 'status': 'failed', 'error': failed['error']} if c['status'] in ('queued', 'running') else c for c in saved['children']]
+                lease.update(failed, finish=True)
             except (StorageError, LeaseLost):
                 pass
     finally:
@@ -241,287 +326,103 @@ def execute_run(run_id):
             active_jobs.discard(run_id)
 
 
-MAX_ACTIVE = 4
-# A recovery batch is one user action, so it may briefly queue past the single-run limit.
-MAX_ACTIVE_WITH_BATCH = 8
-
-
 @app.post("/api/runs", status_code=202)
 def start_run(request: RunRequest):
-    return queue_runs([request], MAX_ACTIVE)[0]
+    run = prepare_run(request)
+    submit_job(run)
+    return public_run(run)
 
 
-def queue_runs(requests: list[RunRequest], limit: int):
-    prepared = [prepare_run(r) for r in requests]
-    with job_lock:
-        if len(active_jobs) + len(prepared) > limit:
-            raise HTTPException(429, f"{len(active_jobs)} runs are already queued. Wait for one to finish.")
-        for run in prepared:
-            store.put(f"runs/{run['id']}", run)
-            active_jobs.add(run["id"])
-            pool.submit(execute_run, run["id"])
-    return prepared
-
-
-def prepare_run(request: RunRequest):
+def prepare_run(request, run_id=None):
+    from .workflows import plan_control
     instance = instance_for(request.instance_id)
+    control = plan_control(instance.id)
+    inherited = list(control.get('commitments', {}).values())
     overrides = request.overrides
     if request.baseline_id:
         baseline = run_for(request.baseline_id)
-        if baseline["instance_id"] != instance.id or not baseline.get("schedule"):
-            raise HTTPException(422, "Warm start must be a schedule for this demand book.")
-        # Overrides accumulate so a second preview does not silently remove a closure.
-        overrides = [Override(**o) for o in baseline.get("overrides", [])] + overrides
-    merged = {(o.location_id, o.week): o for o in overrides}
-    overrides = list(merged.values())
+        if baseline['instance_id'] != instance.id or baseline['status'] != 'completed' or not baseline.get('schedule'):
+            raise HTTPException(422, 'Warm start must be a completed schedule for this demand book.')
+        overrides = [Override(**o) for o in baseline.get('overrides', [])] + overrides
+        inherited += baseline.get('bookings', [])
+    if request.philosophy and not request.baseline_id:
+        raise HTTPException(422, 'Recovery strategies require a baseline.')
+    required = {'deadlines': 'B', 'passengers': 'A', 'p1': 'C', 'custom': 'C'}
+    if request.philosophy in required and request.scenario != required[request.philosophy]:
+        raise HTTPException(422, 'This recovery strategy requires scenario ' + required[request.philosophy] + '.')
+    if request.resume_from_id:
+        source = run_for(request.resume_from_id)
+        if source['instance_id'] != instance.id:
+            raise HTTPException(422, 'Improvement source belongs to another demand book.')
+    overrides = list({(o.location_id, o.week): o for o in overrides}.values())
     for override in overrides:
         if override.location_id not in instance.supply or override.week > instance.weeks:
-            raise HTTPException(422, "Capacity change references an unknown location or week.")
-    return {**request.model_dump(), "overrides": [o.model_dump() for o in overrides], "id": uuid4().hex, "status": "queued", "created_at": now(), "label": request.label or f"Scenario {request.scenario}", "schedule": None, "validation": None}
+            raise HTTPException(422, 'Capacity change references an unknown location or week.')
+    bookings = [Booking(**b) for b in inherited] + request.bookings
+    for b in bookings:
+        if b.activity_id not in instance.activities or b.week_to > instance.weeks:
+            raise HTTPException(422, 'A booking references an unknown activity or week.')
+    bookings = list({(b.request_id, b.activity_id, b.week_from, b.week_to): b for b in bookings}.values())
+    return {**request.model_dump(), 'bookings': [b.model_dump() for b in bookings],
+            'overrides': [o.model_dump() for o in overrides], 'id': run_id or uuid4().hex,
+            'status': 'queued', 'created_at': now(), 'label': request.label or f'Scenario {request.scenario}',
+            'schedule': None, 'validation': None, 'model_bound': None}
 
 
-# Five recovery philosophies as weight vectors (see solver.WEIGHT_KEYS). "custom" takes the
-# caller's weights. They steer the search only; every result is scored by the official formula.
-PHILOSOPHIES = {
-    "churn": {"churn": 10, "deadlines": 2, "passengers": 3, "priority1": 5},
-    "deadlines": {"churn": 1, "deadlines": 10, "passengers": 2, "priority1": 6},
-    "passengers": {"churn": 2, "deadlines": 3, "passengers": 10, "priority1": 5},
-    "p1": {"churn": 3, "deadlines": 3, "passengers": 3, "priority1": 10},
-}
+def submit_job(run, *, recovered=False):
+    with job_lock:
+        if run['id'] in active_jobs:
+            return
+        if len(active_jobs) >= 4:
+            raise HTTPException(429, 'Four jobs are already admitted. Wait for one to finish.')
+        if not recovered:
+            store._write('runs/' + run['id'], run, 0)
+        from .library import register_run
+        register_run(run)
+        active_jobs.add(run['id'])
+        pool.submit(execute_run, run['id'])
 
 
-class RecoveryRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    instance_id: str = Field(pattern=r"^[a-f0-9]{16}$")
-    scenario: Scenario
-    baseline_id: str
-    overrides: list[Override] = Field(min_length=1, max_length=100)
-    weights: Weights = Field(default_factory=Weights)
-    philosophies: list[Literal["churn", "deadlines", "passengers", "p1", "custom"]] = Field(
-        default_factory=lambda: ["churn", "deadlines", "passengers", "p1", "custom"], min_length=1, max_length=5)
-    seconds: int = Field(default=30, ge=1, le=300)
+class ImproveRequest(BaseModel):
+    seconds: int = Field(default=300, ge=1, le=300)
 
 
-@app.post("/api/disruptions/recoveries", status_code=202)
-def start_recoveries(request: RecoveryRequest):
-    names = list(dict.fromkeys(request.philosophies))
-    runs = queue_runs([RunRequest(
-        instance_id=request.instance_id, scenario=request.scenario, seconds=request.seconds,
-        baseline_id=request.baseline_id, overrides=request.overrides, label=f"Recovery · {name}",
-        weights=request.weights if name == "custom" else Weights(**PHILOSOPHIES[name]),
-    ) for name in names], MAX_ACTIVE_WITH_BATCH)
-    batch = {"id": uuid4().hex, "created_at": now(), "runs": [{"philosophy": n, "run_id": r["id"]} for n, r in zip(names, runs)]}
-    store.put(f"recoveries/{batch['id']}", batch)
-    return {"id": batch["id"], "runs": batch["runs"]}
-
-
-@app.get("/api/disruptions/recoveries/{batch_id}")
-def get_recoveries(batch_id: str):
-    try:
-        batch = store.get(f"recoveries/{batch_id}")
-    except ValueError:
-        batch = None
-    if not batch:
-        raise HTTPException(404, "Recovery batch not found.")
-    results = [{"philosophy": r["philosophy"], "run": get_run(r["run_id"])} for r in batch["runs"]]
-    done = all(r["run"]["status"] not in ("queued", "running") for r in results)
-    return {"id": batch_id, "status": "completed" if done else "running", "results": results}
+@app.post('/api/runs/{run_id}/improve', status_code=202)
+def improve_run(run_id: str, request: ImproveRequest):
+    original = run_for(run_id)
+    if original.get('kind') == 'batch' or original['status'] in ('queued', 'running'):
+        raise HTTPException(409, 'Select a finished option to improve.')
+    fields = {k: original[k] for k in RunRequest.model_fields if k in original}
+    fields.update(seconds=request.seconds, resume_from_id=run_id, label='Improve · ' + original['label'])
+    return start_run(RunRequest(**fields))
 
 
 @app.get("/api/runs/{run_id}")
 def get_run(run_id: str):
     run = run_for(run_id)
-    with job_lock:
-        if run["status"] in ("queued", "running") and run_id not in active_jobs and run.get("_lease", {}).get("expires_at", 0) <= store.clock():
-            if len(active_jobs) < 4:
-                active_jobs.add(run_id)
-                pool.submit(execute_run, run_id)
-                run["status"] = "queued"
-                run["message"] = "Restarting from the last saved checkpoint."
+    job = run_for(run['parent_id']) if run.get('parent_id') else run
+    if job['status'] in ('queued', 'running') and job.get('_lease', {}).get('expires_at', 0) <= store.clock():
+        try:
+            submit_job(job, recovered=True)
+        except HTTPException as exc:
+            if exc.status_code != 429:
+                raise
+    if job['status'] == 'failed' and run['status'] in ('queued', 'running'):
+        run = {**run, 'status': 'failed', 'error': job.get('error')}
     return public_run(run)
 
 
 @app.get("/api/runs/{run_id}/export")
 def download(run_id: str):
     run = run_for(run_id)
-    if not run.get("schedule"):
+    if run["status"] != "completed" or not run.get("schedule"):
         raise HTTPException(409, "A complete schedule is not available yet.")
     instance = instance_for(run["instance_id"])
     schedule = Schedule(**run["schedule"])
-    report = validate(instance, schedule, [Override(**o) for o in run["overrides"]])
+    report = checked_run(run)
     if not report["feasible"]:
         raise HTTPException(409, "Export requires a complete schedule with checked safety.")
-    return Response(export_zip(schedule), media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="nightshift-{schedule.scenario}-{run_id[:8]}.zip"'})
-
-
-def report_inputs(report_id, run_id):
-    if report_id not in REPORT_IDS:
-        raise HTTPException(404, "Unknown report.")
-    run = run_for(run_id)
-    if not run.get("schedule") or not run.get("validation"):
-        raise HTTPException(409, "Reports need a completed schedule. Wait for the run to finish.")
-    return instance_for(run["instance_id"]), run
-
-
-@app.get("/api/reports")
-def list_reports():
-    return [{**r, "format": "HTML", "generated_at": None} for r in CATALOG]
-
-
-class ReportRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    run_id: str = Field(min_length=1, max_length=64)
-
-
-@app.post("/api/reports/{report_id}/generate")
-def generate_report(report_id: str, request: ReportRequest):
-    # Rendering is deterministic and cheap, so "generate" checks it renders and hands back
-    # a link; the download renders again rather than storing a copy.
-    render_report(report_id, *report_inputs(report_id, request.run_id))
-    return {"download_url": f"/api/reports/{report_id}/download?run={request.run_id}", "generated_at": now()}
-
-
-@app.get("/api/reports/{report_id}/download")
-def download_report(report_id: str, run: str):
-    return HTMLResponse(render_report(report_id, *report_inputs(report_id, run)))
-
-
-def request_for(request_id):
-    try:
-        saved = store.get(f"requests/{request_id}")
-    except ValueError:
-        saved = None
-    if not saved:
-        raise HTTPException(404, "Request not found.")
-    return saved
-
-
-def request_index(instance_id):
-    return store.get(f"requests/index-{instance_id}") or []
-
-
-class AccessRequestIn(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    instance_id: str = Field(pattern=r"^[a-f0-9]{16}$")
-    contract_number: str = Field(min_length=1, max_length=40)
-    contractor: str = Field(default="", max_length=120)
-    request: str = Field(default="Additional access night", min_length=1, max_length=200)
-    location_id: str = Field(min_length=1, max_length=80)
-    week_from: int = Field(ge=1)
-    week_to: int = Field(ge=1)
-    reason: str = Field(default="", max_length=500)
-
-
-@app.post("/api/requests", status_code=201)
-def create_request(body: AccessRequestIn):
-    instance = instance_for(body.instance_id)
-    if body.contract_number not in instance.projects:
-        raise HTTPException(422, f"{body.contract_number} is not a contract in this demand book.")
-    if body.location_id not in instance.supply:
-        raise HTTPException(422, "Unknown location.")
-    if not body.week_from <= body.week_to <= instance.weeks:
-        raise HTTPException(422, f"Weeks must run forwards and end by week {instance.weeks}.")
-    ids = request_index(instance.id)
-    saved = {**body.model_dump(), "id": f"REQ-{len(ids) + 1:03d}-{uuid4().hex[:6]}", "status": "pending",
-             "received_at": now(), "assessment": None}
-    store.put(f"requests/{saved['id']}", saved)
-    store.put(f"requests/index-{instance.id}", ids + [saved["id"]])
-    return saved
-
-
-@app.get("/api/requests")
-def list_requests(instance_id: str):
-    if not re.fullmatch(r"[a-f0-9]{16}", instance_id):
-        raise HTTPException(422, "Invalid demand-book identifier.")
-    found = []
-    for rid in request_index(instance_id):
-        try:
-            found.append(request_for(rid))
-        except HTTPException:
-            continue
-    return found
-
-
-class RequestStatus(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    status: Literal["pending", "accepted", "rejected", "countered"]
-
-
-@app.patch("/api/requests/{request_id}")
-def update_request(request_id: str, body: RequestStatus):
-    saved = request_for(request_id)
-    saved["status"] = body.status
-    store.put(f"requests/{request_id}", saved)
-    return saved
-
-
-class AssessRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    baseline_id: str
-    seconds: int = Field(default=30, ge=1, le=300)
-
-
-@app.post("/api/requests/{request_id}/assess", status_code=202)
-def assess_request(request_id: str, body: AssessRequest):
-    from .access_requests import alternatives, request_overrides
-    saved = request_for(request_id)
-    instance = instance_for(saved["instance_id"])
-    baseline = run_for(body.baseline_id)
-    if baseline["instance_id"] != instance.id or not baseline.get("schedule") or not baseline.get("validation"):
-        raise HTTPException(422, "Assess against a completed schedule for this demand book.")
-    existing = [Override(**o) for o in baseline.get("overrides", [])]
-    span = saved["week_to"] - saved["week_from"]
-    windows = [("REQUESTED", saved["week_from"])] + [("ALTERNATIVE", s) for s in alternatives(instance, baseline, saved["location_id"], saved["week_from"], saved["week_to"])]
-    runs = queue_runs([RunRequest(
-        instance_id=instance.id, scenario=baseline["scenario"], seconds=body.seconds, baseline_id=baseline["id"],
-        overrides=[Override(**o) for o in request_overrides(instance, saved["location_id"], start, start + span, existing)],
-        label=f"{saved['id']} · {kind.lower()} W{start}",
-    ) for kind, start in windows], MAX_ACTIVE_WITH_BATCH)
-    saved["assessment"] = {"baseline_id": baseline["id"], "created_at": now(), "options": [
-        {"kind": kind, "week_from": start, "week_to": start + span, "run_id": run["id"]} for (kind, start), run in zip(windows, runs)]}
-    store.put(f"requests/{request_id}", saved)
-    return {"id": request_id, "runs": [o["run_id"] for o in saved["assessment"]["options"]]}
-
-
-@app.get("/api/requests/{request_id}/assessment")
-def get_assessment(request_id: str):
-    from .access_requests import TONE, displaced, draft_response, impact, option_points, utilisation
-    saved = request_for(request_id)
-    plan = saved.get("assessment")
-    if not plan:
-        raise HTTPException(404, "This request has not been assessed yet.")
-    instance = instance_for(saved["instance_id"])
-    baseline = run_for(plan["baseline_id"])
-    runs = [get_run(o["run_id"]) for o in plan["options"]]
-    if any(r["status"] in ("queued", "running") for r in runs):
-        return {"status": "running", "done": sum(r["status"] not in ("queued", "running") for r in runs), "total": len(runs)}
-    options = []
-    for o, run in zip(plan["options"], runs):
-        v = run.get("validation") or {}
-        options.append({"kind": o["kind"], "week_from": o["week_from"], "week_to": o["week_to"], "run_id": run["id"],
-                        "impact": impact(baseline, run), "score_before": baseline["validation"]["score"],
-                        "score_after": v.get("score"), "points": option_points(baseline, run)})
-    requested, runs_requested = options[0], runs[0]
-    alts = sorted(options[1:], key=lambda o: ["BENEFICIAL", "NONE", "LOW", "MEDIUM", "HIGH"].index(o["impact"]))
-    moved = displaced(instance, baseline, runs_requested)
-    slipped = [d for d in moved if d["tone"] == "crit"]
-    return {
-        "status": "completed",
-        "location_id": saved["location_id"],
-        "capacity_before": utilisation(baseline, instance, saved["location_id"], saved["week_from"], saved["week_to"]),
-        "capacity_after": utilisation(baseline, instance, saved["location_id"], saved["week_from"], saved["week_to"], extra=1),
-        "tiles": [
-            {"label": "Activities displaced", "value": str(len(moved)), "tone": "crit" if slipped else "warn" if moved else "ok",
-             "note": ", ".join(d["activity_id"] for d in moved[:4]) + (" …" if len(moved) > 4 else "") or "none"},
-            {"label": "Contracts that slip", "value": str(len({d["contract_number"] for d in slipped})), "tone": "crit" if slipped else "ok",
-             "note": ", ".join(sorted({d["contract_number"] for d in slipped})) or "none"},
-            {"label": "Score change", "value": f"{requested['score_before']} → {requested['score_after'] if requested['score_after'] is not None else '—'}",
-             "tone": TONE[requested["impact"]], "note": f"{requested['impact'].lower()} impact"},
-        ],
-        "displaced": moved,
-        "options": [requested] + alts,
-        "draft_response": draft_response(saved, requested, next((a for a in alts if a["impact"] in ("NONE", "BENEFICIAL", "LOW")), None), len(moved), sorted({d["contract_number"] for d in slipped})),
-    }
+    return Response(export_zip(schedule), media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="nightshift-{instance.id}-{schedule.scenario}-{run_id[-8:]}.zip"'})
 
 
 class ChatRequest(BaseModel):
@@ -537,6 +438,25 @@ async def chat(request: ChatRequest):
     if run["instance_id"] != request.instance_id or not run.get("schedule"):
         raise HTTPException(422, "Select a completed schedule for this demand book first.")
     return await respond(instance_for(request.instance_id), run, request.message, start_run)
+
+
+@app.exception_handler(Conflict)
+async def conflict_handler(request, exc):
+    return JSONResponse(status_code=409, content={'detail': str(exc)})
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_handler(request, exc):
+    details = ['.'.join(str(x) for x in error['loc'][1:]) + ': ' + error['msg'] for error in exc.errors()]
+    return JSONResponse(status_code=422, content={'detail': '; '.join(details)})
+
+
+from .report_routes import router as report_router
+app.include_router(report_router)
+from .workflows import router as workflow_router
+app.include_router(workflow_router)
+from .library import router as library_router
+app.include_router(library_router)
 
 
 # The portable container serves the built UI and API from the same origin.

@@ -1,32 +1,33 @@
 {
-  "validation": "independent local checker; official validator unavailable",
-  "rule_source": "PS1/PS1_README.md",
+  "validation": "local checker; reported closure errors and 137.9 contract score reproduced; official executable unavailable",
+  "rule_version": "ps1-local-1.2",
+  "rule_source": "PS1/PS1_README.md and user-supplied validator results",
   "scenarios": {
     "A": {
-      "score": 25.2,
+      "score": 137.9,
       "solver_status": "OPTIMAL",
       "sha256": {
-        "SCHEDULE_ACCESS.csv": "eee9df00bd333773e3fff2ed541f0c6a5ba3ccd69a75fad08d95cbae4593407f",
-        "SCHEDULE_OCCUPANCY.csv": "0fa6bbf253b694d77c7fa9f10bd1f0d876fa4a386503d28b1af9e4ca5842d01c",
-        "RESULTS.csv": "72e96337bcc26c20e536d7927e969dc0e78082d9b47190a78557741b6ac2dae4"
+        "SCHEDULE_ACCESS.csv": "401ad8cb1e6877f2047e8074244b16aa55bc473b42616ecca2b72c20e6752e18",
+        "SCHEDULE_OCCUPANCY.csv": "00d4c56f8c2d205b8f7e0638d363f441eafffa0e424a5323f3f3ee23976e2dfe",
+        "RESULTS.csv": "0c091bcb105b973d120b0eaff3379770f9a13dfda2ae99517de6c0055e20ba99"
       }
     },
     "B": {
       "score": 30,
       "solver_status": "OPTIMAL",
       "sha256": {
-        "SCHEDULE_ACCESS.csv": "75a544d7adf39bd1a38e3670f8aecc9a24e7daca23c056bb0d230d371900b409",
-        "SCHEDULE_OCCUPANCY.csv": "00e53fc7dfa443bcaf1e82dd9c2231ba3353a0dee2fac777e0c611cd97967eac",
-        "RESULTS.csv": "7798932a659cf8fd7377660dbb41e1152816bbbfd5ff811862ec56ed50ce7d98"
+        "SCHEDULE_ACCESS.csv": "0c183d97a427d964e69a6dcfd6460203850b90c40dbb6c4c029457b94a0907ee",
+        "SCHEDULE_OCCUPANCY.csv": "942f9db19656c706c5df9848390f26c82d14695560a616bffc8cf6c8031af193",
+        "RESULTS.csv": "80d82795916d083ff2dab8b8e041200c859d9587f3b7584acb941d6a9f3e5770"
       }
     },
     "C": {
-      "score": 25.2,
+      "score": 62.7,
       "solver_status": "OPTIMAL",
       "sha256": {
-        "SCHEDULE_ACCESS.csv": "ef43ce371ed88c44dc5b5757915c065004d4d3125e6ec0c64a41a544fbaf6c1d",
-        "SCHEDULE_OCCUPANCY.csv": "771f01de71da6714e62e45a253a715de4a6fed7925b9c59cd873cc166d397fd5",
-        "RESULTS.csv": "86bcbe3fdf6b72e0c8a1fd41831578c0243402e0bd4792eb5ea8458072496275"
+        "SCHEDULE_ACCESS.csv": "9069a7d290d1335540f8bce780fab0ef3b768e8dca308a289946a60ebe0be651",
+        "SCHEDULE_OCCUPANCY.csv": "151a1bcea5a5c959a3ca38cdfc3ff27b21976a0b30adec9fefd7bebcd2c5dc0b",
+        "RESULTS.csv": "cea410b46b25248ee6b5a6ffad6f4be7d987d159d49948270a3e26a9c0c4e93b"
       }
     }
   }

@@ -28,8 +28,8 @@ export function Home({ go }: { go: (t: TabId) => void }) {
     const atRisk = plan.contracts.filter((c) => c.status === "At risk" || c.status === "Projected late");
     const fragile = plan.activities.filter((a) => a.frag >= 65).sort((x, y) => y.frag - x.frag);
     const ecloActs = plan.activities.filter((a) => a.eclo);
-    const ecloWeeks = [...new Set(ecloActs.flatMap((a) => a.weeks))].sort((a, b) => a - b);
-    const hotspots = [...plan.usage.values()].filter((r) => r.used >= r.capacity);
+    const ecloWeeks = [...new Set(ecloActs.flatMap((a) => a.ecloWeeks))].sort((a, b) => a - b);
+    const hotspots = [...plan.usage.values()].filter((r) => r.capacity > 0 && r.used >= r.capacity);
     const hotLocations = [...new Set(hotspots.map((r) => r.location_id))];
     const stuck = plan.activities.filter((a) => a.alternatives === 0);
     const overCapacity = [...plan.usage.values()].filter((r) => r.excess > 0);
@@ -66,14 +66,14 @@ export function Home({ go }: { go: (t: TabId) => void }) {
       });
     }
 
-    const worst = [...plan.usage.values()].sort(
+    const worst = [...hotspots].sort(
       (a, b) => b.used / b.capacity - a.used / a.capacity || b.used - a.used,
     )[0];
     if (worst)
       queue.push({
         sev: "HIGH",
         title: `${labelFor(worst.location_id)} runs at ${Math.round((worst.used / worst.capacity) * 100)}% in Week ${worst.week}`,
-        detail: `${worst.used} of ${worst.capacity} possessions used. Any new demand at this location displaces scheduled work.`,
+        detail: `${worst.used} of ${worst.capacity} possessions used. Additional demand needs a solver-checked capacity or timing change.`,
         to: "schedule",
         tag: `${worst.used}/${worst.capacity}`,
         tagCls: worst.excess > 0 ? "pill p-crit" : "pill p-warn",

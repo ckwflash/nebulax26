@@ -58,7 +58,7 @@ assert incomplete["tool"] == "clarify" and incomplete["preview"] is None
 # Read earlier completed runs to check that the deployment retained durable state.
 previous = json.loads(Path(".nightshift/deployment/verification.json").read_text())
 saved_scores = {}
-for scenario, expected in [("A", 25.2), ("B", 30), ("C", 25.2)]:
+for scenario, expected in [("A", 137.9), ("B", 30), ("C", 62.7)]:
     run = request("GET", f"/api/runs/{previous['runs'][scenario]['id']}")
     assert run["status"] == "completed" and run["validation"]["score"] == expected
     assert run["validation"]["coverage_percent"] == 100

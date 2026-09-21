@@ -3,23 +3,31 @@
 
 import { useState, type ReactNode } from "react";
 import type { ScenarioId } from "../api/types";
-import { SCENARIO_LABEL, usePlanState } from "../state/plan";
-import { Nav } from "./Nav";
+import { available, SCENARIO_LABEL, usePlanState } from "../state/plan";
+import { DatasetLibrary } from "./DatasetLibrary";
+import { ScenarioResults } from "../components/ScenarioResults";
 import { UploadDialog } from "./UploadDialog";
+import { Nav } from "./Nav";
 import { TAB_TITLE, type TabId } from "./tabs";
 
 const SCENARIOS: ScenarioId[] = ["A", "B", "C"];
 
-function TopBar({
-  current,
-  go,
-  onUpload,
-}: {
-  current: TabId;
-  go: (t: TabId) => void;
-  onUpload: () => void;
-}) {
-  const { plan, status, error, solving, solvingLabel, switchScenario } = usePlanState();
+function TopBar({ current, go, onUpload, onLibrary }: { current: TabId; go: (t: TabId) => void; onUpload: () => void; onLibrary: () => void }) {
+  const {
+    plan,
+    run,
+    approved,
+    adoptRun,
+    refreshApproval,
+    viewRun,
+    status,
+    solving,
+    solvingLabel,
+    switchScenario,
+    history,
+  } = usePlanState();
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const feasible = plan?.validation.feasible;
   const crumb = plan
     ? `${plan.name} · Scenario ${plan.scenario} (${SCENARIO_LABEL[plan.scenario]}) · ${feasible ? "Feasible" : "Check violations"}`
@@ -41,22 +49,73 @@ function TopBar({
       }}
     >
       <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <span style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.2 }}>{TAB_TITLE[current]}</span>
+        <span style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.2 }}>
+          {TAB_TITLE[current]}
+        </span>
         <span
-          style={{ fontSize: 11.5, color: "#5b6578", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          style={{
+            fontSize: 11.5,
+            color: "#5b6578",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
         >
           {crumb}
         </span>
       </div>
       <div style={{ flex: 1 }} />
 
+      {run && (
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button
+            className="btn btn-sm"
+            disabled={
+              saving || !available(run) || approved?.approved_run_id === run.id
+            }
+            onClick={async () => {
+              setSaving(true);
+              setError("");
+              try {
+                await adoptRun(run);
+              } catch (e) {
+                setError((e as Error).message);
+                await refreshApproval().catch(() => {});
+              } finally {
+                setSaving(false);
+              }
+            }}
+          >
+            {approved?.approved_run_id === run.id
+              ? "Approved"
+              : "Adopt viewed plan"}
+          </button>
+          {approved?.run && approved.approved_run_id !== run.id && (
+            <button
+              className="btn btn-sm"
+              onClick={() => viewRun(approved.run!)}
+            >
+              View approved
+            </button>
+          )}
+          {error && (
+            <span
+              role="alert"
+              className="small"
+              style={{ color: "#a12a22", maxWidth: 220 }}
+            >
+              {error}
+            </span>
+          )}
+        </div>
+      )}
       {plan && (
         <div className="seg" role="group" aria-label="Scenario">
           {SCENARIOS.map((s) => (
             <button
               key={s}
               className={plan.scenario === s ? "on" : ""}
-              disabled={solving}
+              disabled={solving && !history?.latest[s]?.schedule}
               title={`Scenario ${s} — ${SCENARIO_LABEL[s]}`}
               onClick={() => plan.scenario !== s && switchScenario(s)}
             >
@@ -66,16 +125,21 @@ function TopBar({
         </div>
       )}
 
-      <button className="btn btn-sm" onClick={onUpload} disabled={solving} title="Load your own instance CSVs">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 16V4M7 9l5-5 5 5" />
-          <path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
-        </svg>
-        Load demand book
-      </button>
+      <button className="btn btn-sm" onClick={onLibrary}>Dataset library</button>
+      <button className="btn btn-sm" onClick={onUpload} title="Load your own instance CSVs">Load demand book</button>
 
       <button className="btn btn-sm" onClick={() => go("ask")}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
           <path d="M4 5h16v11H9l-5 4z" />
           <path d="M12 8v3M12 13v.5" />
         </svg>
@@ -86,17 +150,23 @@ function TopBar({
         <span className="pill p-info">{solvingLabel || "Solving…"}</span>
       ) : status === "error" ? (
         <span className="pill p-crit">Service offline</span>
-      ) : error ? (
-        <span className="pill p-crit" title={error}>
-          Last run did not solve
-        </span>
       ) : feasible === false ? (
-        <span className="pill p-warn">{plan?.validation.hard_violations.length} violations</span>
+        <span className="pill p-warn">
+          {plan?.validation.hard_violations.length} violations
+        </span>
       ) : (
         <span className="pill p-ok">System OK</span>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 12, borderLeft: "1px solid #e6e9ef" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          paddingLeft: 12,
+          borderLeft: "1px solid #e6e9ef",
+        }}
+      >
         <div
           style={{
             width: 32,
@@ -113,9 +183,13 @@ function TopBar({
         >
           JT
         </div>
-        <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
+        <div
+          style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}
+        >
           <span style={{ fontSize: 13, fontWeight: 600 }}>Jerry Tan</span>
-          <span style={{ fontSize: 11, color: "#5b6578" }}>Works Controller · Night desk</span>
+          <span style={{ fontSize: 11, color: "#5b6578" }}>
+            Works Controller · Night desk
+          </span>
         </div>
       </div>
     </header>
@@ -132,6 +206,7 @@ export function Shell({
   children: ReactNode;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   return (
     <div
       style={{
@@ -145,8 +220,16 @@ export function Shell({
       }}
     >
       <Nav current={current} go={go} />
-      <div style={{ flex: 1, minWidth: 0, height: "100%", display: "flex", flexDirection: "column" }}>
-        <TopBar current={current} go={go} onUpload={() => setUploading(true)} />
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <TopBar current={current} go={go} onUpload={() => setUploading(true)} onLibrary={() => setLibraryOpen(true)} />
         {/* position:relative — the Schedule panel and the Scenarios popups sit inside this. */}
         <main
           style={{
@@ -160,7 +243,9 @@ export function Shell({
             position: "relative",
           }}
         >
+          <ScenarioResults />
           {children}
+          {libraryOpen && <DatasetLibrary onClose={() => setLibraryOpen(false)} />}
           {uploading && <UploadDialog onClose={() => setUploading(false)} />}
         </main>
       </div>

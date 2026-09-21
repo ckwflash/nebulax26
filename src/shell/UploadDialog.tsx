@@ -3,11 +3,8 @@
 
 import { useRef, useState } from "react";
 import { REQUIRED_FILES, UPLOAD_LIMIT_BYTES } from "../api/client";
-import type { ScenarioId } from "../api/types";
-import { SCENARIO_LABEL, usePlanState } from "../state/plan";
+import { usePlanState } from "../state/plan";
 
-const SCENARIOS: ScenarioId[] = ["A", "B", "C"];
-const BUDGETS = [30, 60, 90, 150, 300];
 
 interface Checked {
   files: File[];
@@ -48,21 +45,20 @@ export function inspect(files: File[]): Checked {
     missing,
     unexpected,
     bytes,
-    ready: missing.length === 0 && unexpected.length === 0 && bytes <= UPLOAD_LIMIT_BYTES,
+    ready: files.length === 8 && new Set(names).size === 8 && missing.length === 0 && unexpected.length === 0 && bytes <= UPLOAD_LIMIT_BYTES,
   };
 }
 
 export function UploadDialog({ onClose }: { onClose: () => void }) {
   const { loadDemandBook, solving, solvingLabel, isSample, backToSample, instance } = usePlanState();
   const [picked, setPicked] = useState<Checked | null>(null);
-  const [scenario, setScenario] = useState<ScenarioId>("C");
-  const [seconds, setSeconds] = useState(90);
+  const [name, setName] = useState("");
   const [dragging, setDragging] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
   const take = (list: FileList | null) => {
-    if (!list || !list.length) return;
+    if (solving || !list || !list.length) return;
     setFailure(null);
     setPicked(inspect([...list]));
   };
@@ -71,7 +67,7 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
     if (!picked?.ready) return;
     setFailure(null);
     try {
-      await loadDemandBook(picked.files, scenario, seconds);
+      await loadDemandBook(picked.files, name);
       onClose();
     } catch (e) {
       setFailure(e instanceof Error ? e.message : "The demand book could not be loaded.");
@@ -81,7 +77,7 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
   return (
     <div
       style={{
-        position: "absolute",
+        position: "fixed",
         inset: 0,
         background: "rgba(15,31,61,.35)",
         display: "flex",
@@ -92,8 +88,10 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
     >
       <div
         className="card"
+        role="dialog" aria-modal="true" aria-label="Load a demand book"
         style={{
           width: 620,
+          maxWidth: "calc(100% - 32px)",
           maxHeight: "88%",
           display: "flex",
           flexDirection: "column",
@@ -113,7 +111,7 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
           <div style={{ display: "flex", flexDirection: "column" }}>
             <span className="h2">Load a demand book</span>
             <span className="small muted">
-              The eight instance CSVs, or one ZIP containing them. Solved here, on this machine.
+              The eight instance CSVs, or one ZIP containing them. Solved by the planning service.
             </span>
           </div>
           <div style={{ flex: 1 }} />
@@ -136,7 +134,11 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
               setDragging(false);
               take(e.dataTransfer.files);
             }}
-            onClick={() => input.current?.click()}
+            role="button"
+            tabIndex={0}
+            aria-label="Browse demand book files"
+            onKeyDown={e => { if (!solving && (e.key === "Enter" || e.key === " ")) input.current?.click(); }}
+            onClick={() => { if (!solving) input.current?.click(); }}
             style={{
               border: `1.5px dashed ${dragging ? "#1d5fd1" : "#cfd5df"}`,
               background: dragging ? "#f2f6fd" : "#fbfcfd",
@@ -159,6 +161,7 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
             <input
               ref={input}
               type="file"
+              disabled={solving}
               multiple
               accept=".csv,.zip"
               style={{ display: "none" }}
@@ -231,44 +234,19 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
 
           <div className="divider" />
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div className="field">
-              <label htmlFor="up-scen">Scenario to solve</label>
-              <select
-                id="up-scen"
-                className="input"
-                style={{ height: 34 }}
-                value={scenario}
-                onChange={(e) => setScenario(e.target.value as ScenarioId)}
-                disabled={solving}
-              >
-                {SCENARIOS.map((s) => (
-                  <option key={s} value={s}>
-                    {s} — {SCENARIO_LABEL[s]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="up-budget">Solve budget</label>
-              <select
-                id="up-budget"
-                className="input"
-                style={{ height: 34 }}
-                value={String(seconds)}
-                onChange={(e) => setSeconds(Number(e.target.value))}
-                disabled={solving}
-              >
-                {BUDGETS.map((b) => (
-                  <option key={b} value={String(b)}>
-                    {b} seconds
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="field">
+            <label htmlFor="up-name">Dataset name (optional)</label>
+            <input id="up-name" className="input" maxLength={120} value={name}
+              onChange={e => setName(e.target.value)} placeholder="e.g. September maintenance window" disabled={solving} />
+          </div>
+          <div className="callout c-blue">
+            <strong>All three scenarios start automatically.</strong>
+            <div className="small">A, B and C are queued together, with up to 90 seconds of search each.
+              View and download each result as it finishes, or return to it in Dataset library.</div>
           </div>
           <span className="small muted">
-            The other two scenarios can be solved afterwards from the switcher in the top bar.
+            Uploaded books and results are saved in the shared demo library. Use non-sensitive data.
+            Review and adopt a result explicitly; uploading never approves it.
           </span>
 
           {failure && <div className="callout c-red">{failure}</div>}
@@ -276,7 +254,7 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
             <div className="callout c-blue" style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontWeight: 600 }}>{solvingLabel || "Working…"}</span>
               <span className="small muted">
-                Up to {seconds}s for the search. The page stays responsive; this dialog closes when it lands.
+                This dialog closes once all three scenarios are queued. Results continue in the background.
               </span>
             </div>
           )}
@@ -315,7 +293,7 @@ export function UploadDialog({ onClose }: { onClose: () => void }) {
             Cancel
           </button>
           <button className="btn btn-sm btn-primary" onClick={start} disabled={!picked?.ready || solving}>
-            {solving ? "Solving…" : "Upload and solve"}
+            {solving ? "Working…" : "Upload & solve A / B / C"}
           </button>
         </div>
       </div>

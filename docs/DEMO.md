@@ -1,56 +1,45 @@
 # Three-minute demonstration
 
-Written for the RailPlan UI (`src/RailPlan.tsx`). Use the hosted URL once deployed, and keep
-the local app and the public-result ZIP as backups. Rehearse with the same build and
-benchmark files you submit.
+Written for the RailPlan UI. Rehearse with the exact build and benchmark files you submit.
+Use the hosted service only after this merged version has been deployed; keep the local
+app and corrected public-result ZIPs as backups.
 
-## Before you record
+## Before recording
 
-1. Start the service and the UI. On Windows:
-   `.venv/Scripts/python.exe -m uvicorn trackaccess.api:app --port 8000` and `npx vite`.
-   Then open `http://127.0.0.1:5173`.
-2. If a previous rehearsal left an uploaded book loaded, go to **Load demand book → Back to
-   sample book**.
-3. In the top bar, switch to scenario **C** (about 20 s). The disruption beat needs C:
-   Scenario A allows no ECLO or excess nights, so the five recovery philosophies all come
-   out the same there.
-4. Pre-run the two slow beats so the recording doesn't wait on the solver. Tabs keep their
-   state while you move between them.
-   - **Disruption Response:** location **BET H01–H02 EB**, full closure, weeks **10–12** →
-     Map the blast radius → Generate recovery → **Generate 5 recoveries** at 30 s each
-     (about a minute in total).
-   - **Contractor Requests:** Log a request → **C006**, Additional access night, **BET
-     H01–H02 EB**, week **15** → Assess impact (about 25 s).
-5. Go back to **Home**.
+1. Open the public demand book and display the saved Scenario A run. Its corrected
+   local score is 137.9. Keep the approved plan and displayed preview distinct.
+2. Pre-run a disruption comparison: select a location and closure window, map the blast
+   radius, then generate the five recovery options. The options share a 90-second
+   computation budget. Read the results from the cards; an impossible policy stays unavailable.
+3. Pre-assess a contractor booking: choose a contract, an activity on its route, a
+   requested week range and a reason. Assessment uses the approved baseline and offers
+   checked alternatives. Acceptance saves the booking and approves its schedule together.
+4. Generate the management summary under Reports. It opens as printable HTML; use
+   Print → Save as PDF when a paper copy is useful.
+5. Return to Home. Tabs retain their state while moving between them.
 
 ## Script
 
-| Time | Where | Action | Narration |
-|---|---|---|---|
-| 0:00–0:20 | Home | Point at the Run summary and the feasible pill | "At 2 a.m. a controller needs a complete plan and a reason to trust every possession. RailPlan schedules all 54 activities across both lines, and every one is checked." |
-| 0:20–0:40 | Home → Reports | Point at score, coverage and safety in the Submission bundle card | "Every work unit is delivered, and the penalty is 25.2. That is the proven lower bound, against 48.3 for the reference schedule. Structural checks and the safety witness pass. Official validation is a separate step." |
-| 0:40–1:05 | Ask RailPlan | Ask "Why is C006 late?" and read the A036 evidence | "This delay has a specific cause. A036 needs seven work units, has five eligible weeks, and gets one access a week. Standard access alone cannot hit that date." |
-| 1:05–1:20 | Risk & Resilience | Where the schedule is most vulnerable | "Here is where the plan is brittle: the Beta H01–H02 eastbound section is full for twenty weeks." |
-| 1:20–2:05 | Disruption Response | Step 3 cards → the Protect Deadlines change map → Adopt | "Now close that section for three weeks. RailPlan re-plans five ways. Minimum churn moves the least but spends two ECLOs. Protecting deadlines cuts the overrun from 21 days to 7 with four ECLOs. Protecting passengers uses no ECLO. Every option is scored on the same official formula. The controller picks one and adopts it." |
-| 2:05–2:35 | Contractor Requests | Open C006's request | "A contractor asks for an extra night on that same section in week 15. Granting it moves three other activities, all within their slack, and no completion date changes. Weeks 24 and 25 would move nothing. RailPlan drafts the reply." |
-| 2:35–3:00 | Reports | Generate → Open the management summary; show the bundle download | "The decision, the reports and the three submission CSVs all describe the same checked plan. Export is blocked for any plan that is not feasible." |
-
-The Disruption figures above were measured on the public book with 30 s per recovery
-(`docs/BACKEND_CONTRACT.md` §4.3). Re-read them from the cards after your own rehearsal
-run, and say what is on screen.
+| Time | Where | Action and narration |
+|---|---|---|
+| 0:00–0:25 | Home | Show all 54 activities and complete workload coverage. Explain that the controller starts from a checked plan for both lines. |
+| 0:25–0:50 | Reports | Show Scenario A's corrected 137.9 score, the rule version and the validation result. Distinguish the local model's checks from official judging acceptance. |
+| 0:50–1:15 | Ask RailPlan | Ask "Why is C006 late?" and open A036 evidence: seven work units, five eligible weeks, one access per week. |
+| 1:15–2:00 | Disruption Response | Compare the pre-run recovery cards. Show minimum changed activities, hard deadline protection, no ECLO/excess for passengers, and frozen P1 activity bookings. Read the actual outcomes; compare operational metrics when scenarios use different score formulas. Review and explicitly adopt a feasible option. |
+| 2:00–2:35 | Contractor Requests | Show a booking assessment against the current approved plan. Reassess if the previous adoption made it stale. Explain the requested activity guarantee, alternatives, and atomic acceptance. Draft replies are displayed for review. |
+| 2:35–3:00 | Reports | Open the management summary for the displayed run and download its three-CSV submission bundle. Infeasible diagnostics carry a report warning and cannot be exported or adopted. |
 
 ## Hidden-instance demonstration
 
-**Load demand book** takes the eight CSVs or a single ZIP, solves the scenario you pick
-and switches every tab to the new book. Allow a 60–90 s budget and show the progress
-label. Do not use cached public outputs as hidden-instance results. The uploaded book
-survives a page reload. **Back to sample book** returns to the public book.
+Load demand book accepts eight CSVs or one ZIP. Uploading selects the demand book and
+starts a 90-second solve; it does not approve the result. Review and adopt explicitly.
+Reload restores the selected demand book and its durable approved plan. Use Back to
+sample book to return to the public book. Do not present cached public results as
+hidden-instance solves. Allow additional time for a harder book or a 300-second Improve.
 
-## Backups and before publishing
+## Before publishing
 
-- If the solver is slow on the recording machine, use the pre-run results (step 4 above).
-- Test a fresh browser and the exported ZIP.
-- Verify model quota if model assistance is enabled for Ask.
-- Confirm Cloud Run checkpoint recovery survives a revision replacement.
-- Recording and publishing the YouTube video and the GitLab repository are steps for the
-  account owner.
+Use the actual figures from the final rehearsal. Test a fresh browser, reload after
+adoption, printed reports and exported ZIPs. Verify model quota for Ask and Cloud Run
+checkpoint recovery. Recording and publishing the video and repository remain
+owner-account steps.

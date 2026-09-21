@@ -104,35 +104,44 @@ def independent_a_bound(tables):
         return finishes[aid]
 
     tenths = 0
-    for aid, job in jobs.items():
-        project = projects[job["contract_number"]]
-        late = max(0, (origin + timedelta(days=7*finish(aid)-1) - date.fromisoformat(project["planned_completion_date"])).days)
-        tenths += late * {1: 100, 2: 10, 3: 1}[int(project["contract_priority"])] * {1: 13, 2: 12, 3: 10}[int(job["activity_priority"])]
+    for cid, project in projects.items():
+        members = [aid for aid, job in jobs.items() if job['contract_number'] == cid]
+        if not members:
+            continue
+        late = max(0, (origin + timedelta(days=7*max(finish(aid) for aid in members)-1) - date.fromisoformat(project["planned_completion_date"])).days)
+        tenths += late * {1: 100, 2: 10, 3: 1}[int(project["contract_priority"])] * sum({1: 13, 2: 12, 3: 10}[int(jobs[aid]["activity_priority"])] for aid in members)
     return tenths / 10
 
 
 def independent_c_bound(tables):
-    """Relax resources/precedence; enumerate 0–2 ECLO accesses per activity.
+    """Relax resources, precedence and shared ECLO windows per contract.
 
-    C's two-week continuity rule and one access/week permit at most two ECLO
-    accesses per activity. Ignoring conflicts can only lower the minimum cost.
+    Enumerate contract finish weeks, with each member allowed at most two ECLO
+    accesses. Charge all member weights at that contract's final delay.
     """
     params = {r["key"]: r["value"] for r in tables["parameters"]}
     origin = date.fromisoformat(params["horizon_start"])
     projects = {r["contract_number"]: r for r in tables["projects"]}
     total = 0
-    for job in tables["activities"]:
-        project = projects[job["contract_number"]]
-        first = max(1, (date.fromisoformat(job["planned_start_date"]) - origin).days // 7 + 1)
-        weight = {1: 100, 2: 10, 3: 1}[int(project["contract_priority"])] * {1: 13, 2: 12, 3: 10}[int(job["activity_priority"])]
+    for cid, project in projects.items():
+        jobs = [job for job in tables['activities'] if job['contract_number'] == cid]
+        if not jobs:
+            continue
+        weight = {1: 100, 2: 10, 3: 1}[int(project["contract_priority"])] * sum({1: 13, 2: 12, 3: 10}[int(job["activity_priority"])] for job in jobs)
         alternatives = []
-        for eclo in range(3):
-            accesses = (2 * int(job["total_accesses"]) - eclo + 1) // 2
-            if accesses < eclo:
-                continue
-            end = origin + timedelta(days=7 * (first + accesses - 1) - 1)
-            late = max(0, (end - date.fromisoformat(project["planned_completion_date"])).days)
-            alternatives.append(late * weight + 50 * eclo)
+        for week in range(1, int(params['horizon_weeks']) + 1):
+            eclo = 0
+            for job in jobs:
+                first = max(1, (date.fromisoformat(job["planned_start_date"]) - origin).days // 7 + 1)
+                available = max(0, week - first + 1)
+                needed = max(0, 2 * (int(job['total_accesses']) - available))
+                if needed > min(2, available):
+                    break
+                eclo += needed
+            else:
+                end = origin + timedelta(days=7 * week - 1)
+                late = max(0, (end - date.fromisoformat(project["planned_completion_date"])).days)
+                alternatives.append(late * weight + 50 * eclo)
         total += min(alternatives)
     return total / 10
 
@@ -197,12 +206,14 @@ def build_cases():
     t = network(2, capacity=1)
     for i in range(301, 306):
         add_job(t, i)
-    add("03_sharing_limit", "Five compatible jobs, four sharing places", t, (70, 21, 21), "Only four jobs fit a possession. A delays one job one week (70). B/C buy a second possession at one sector and two platforms: 3 × 7 = 21.", ["sharing limit of four", "location accounting", "supply congestion"])
+    add("03_sharing_limit", "Five compatible jobs, four sharing places", t, (70, None, 70), "Only four jobs fit the shared possession. A/C delay one job one week (70). A separate possession in the same week violates the first group's closure, even with extra supply. B's week-1 deadline is infeasible; a diagnostic overrun may be returned.", ["sharing limit of four", "weekly closure", "supply congestion"])
+    cases[-1]['expected']['B'] = {'feasible': False, 'diagnostic_overrun': True}
 
     t = network(3, capacity=1)
     for i, kind in enumerate(("PM", "PC", "PC"), 401):
         add_job(t, i, kind=kind)
-    add("04_exclusive_mixes", "PM isolation and PC incompatibility", t, (210, 42, 91), "The three jobs require separate possessions. A completes in weeks 1/2/3: (0+7+14) × 10 = 210. B buys two extra possessions at three locations (42). C permits one extra: two jobs in week 1 and one in week 2 cost 21+70=91.", ["PM exclusive", "PC cannot share with PC", "C excess cap"])
+    add("04_exclusive_mixes", "PM isolation and PC incompatibility", t, (210, None, 210), "The three incompatible jobs require separate weeks under the observed CSV closure rule. A/C complete in weeks 1/2/3: (0+7+14) × 10 = 210. B cannot meet all week-1 deadlines even with extra supply; a diagnostic overrun may be returned.", ["PM exclusive", "PC cannot share with PC", "weekly closure"])
+    cases[-1]['expected']['B'] = {'feasible': False, 'diagnostic_overrun': True}
 
     t = network(5)
     add_job(t, 501, demand=2, deadline=2)
@@ -210,10 +221,10 @@ def build_cases():
     add_job(t, 503, deadline=5, predecessor="A502")
     add("05_predecessor_chain", "Cross-contract strict precedence", t, (0, 0, 0), "A501 takes weeks 1–2, A502 weeks 3–4, A503 week 5. This meets each deadline with zero cost. Every successor must start in a strictly later week.", ["FS+0", "cross-contract references", "boundary dates"])
 
-    t = network(1)
-    add_job(t, 601, nature="Live", location="SEC:X:H1_H2:EB")
-    add_job(t, 602, nature="Live", location="SEC:Y:H1_H2:WB")
-    add("06_live_interchange", "Live protection through an interchange", t, (0, 0, 0), "Two different opportunities in week 1 deliver both jobs without ECLO or excess. Their mirrored cross-line protection intersects, so assigning the same opportunity must be rejected.", ["opposite-bound mirror", "cross-line protection", "timing witness"])
+    t = network(2)
+    add_job(t, 601, nature="Live", location="SEC:X:H1_H2:EB", deadline=2)
+    add_job(t, 602, nature="Live", location="SEC:Y:H1_H2:WB", deadline=2)
+    add("06_live_interchange", "Live protection through an interchange", t, (0, 0, 0), "The jobs take different weeks and finish by week 2 without ECLO or excess. Their mirrored cross-line closures prevent using the same week, regardless of private timing slots or reused labels.", ["opposite-bound mirror", "cross-line protection", "weekly closure"])
 
     t = network(6)
     add_job(t, 701, demand=3, deadline=2)
@@ -228,10 +239,11 @@ def build_cases():
             row["contract_priority"] = "1"
     for row in t["activities"]:
         row["activity_priority"] = str(rng.randint(1, 3))
-    add("08_priority_pressure", "Public network with high-priority bottlenecks", t, (independent_a_bound(t), 30, independent_c_bound(t)), "Seed 20260918 changes only priority weights and promotes C006/C010 to P1. Feasibility is preserved. The resource-free standard-work A bound is 2240; B's objective is unchanged at 30. C permits at most two ECLO accesses per activity: independently minimizing each activity's delay plus 0/1/2 ECLO costs gives a resource-free lower bound of 720. Valid schedules attain both A/C bounds, proving optimality without relying on CP-SAT's status alone.", ["54 activities", "weighted priorities", "realistic regression"], oracle="analytical A/C lower bounds; invariant B")
+    add("08_priority_pressure", "Public network with high-priority bottlenecks", t, (None, 30, independent_c_bound(t)), "Seed 20260918 changes only priority weights and promotes C006/C010 to P1. The resource-free standard-work A lower bound is 12670, but ignores weekly closures and is not an attained optimum. B's optimum remains 30. C permits at most two ECLO accesses per activity; the independent lower bound of 3870 is attainable.", ["54 activities", "weighted priorities", "realistic regression"], oracle="analytical A/C lower bounds; invariant B")
+    cases[-1]['expected']['A']['lower_bound'] = independent_a_bound(t)
 
     t = duplicate_network(public_tables())
-    add("09_double_network", "Two independent copies of the public network", t, (50.4, 60, 50.4), "Duplicate every identifier and network resource into two disjoint components. Each feasible solution restricts to a feasible original solution, and two original solutions combine. Scores add, so optima are exactly twice the certified public scores. This is a scale test, not a claim of doubled congestion.", ["108 activities", "384 work units", "four lines", "scale and separability"], oracle="compositional from certified public optima")
+    add("09_double_network", "Two independent copies of the public network", t, (275.8, 60, 125.4), "Duplicate every identifier and network resource into two disjoint components. Each feasible solution restricts to a feasible original solution, and two original solutions combine. Scores add, so local-model optima are twice the corrected public scores (137.9/30/62.7). This is a scale test, not a claim of doubled congestion.", ["108 activities", "384 work units", "four lines", "scale and separability"], oracle="compositional from corrected local public optima")
 
     t = network(2)
     add_job(t, 1001, demand=4, deadline=2)
@@ -258,7 +270,7 @@ def main():
         bundle["README.md"] = (DEST / "README.md").read_bytes()
     if (DEST / "TEST_RESULTS.md").exists():
         bundle["TEST_RESULTS.md"] = (DEST / "TEST_RESULTS.md").read_bytes()
-    for mode in ("local", "hosted", "hosted-extended", "hosted-post-fix"):
+    for mode in ("scoring-fix",):
         report = DEST / "results" / mode / "REPORT.md"
         if report.exists():
             bundle[f"reports/{mode}.md"] = report.read_bytes()

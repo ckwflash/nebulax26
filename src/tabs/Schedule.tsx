@@ -564,7 +564,7 @@ export function Schedule({ go }: { go: (t: TabId) => void }) {
           <span style={{ flex: 1 }} />
           <span>
             {selA
-              ? `Ghost blocks show where ${selA.id} could otherwise go on capacity grounds`
+              ? `Ghost blocks show where ${selA.id} has capacity-based suggestions; solver validation is required`
               : "Click an activity for its drivers, conflicts and alternatives"}
           </span>
         </div>
@@ -753,7 +753,7 @@ function DetailPanel({
           </div>
           <div style={{ width: 1, alignSelf: "stretch", background: border }} />
           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
-            <span className="card-h">Operational confidence</span>
+            <span className="card-h">Operational confidence · heuristic</span>
             {cf.reasons.map((r) => (
               <span key={r} style={{ fontSize: 12.5, display: "flex", gap: 6 }}>
                 <span className="muted">·</span>

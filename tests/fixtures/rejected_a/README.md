@@ -1,0 +1,1 @@
+Regression input: the user-provided `nightshift-A-545356a7.zip`, received 2026-09-19. The three CSVs are unchanged. `closure_errors.json` contains the 49 supplied closure messages with only the repeated display heading removed and order sorted. The external validator implementation was not supplied.

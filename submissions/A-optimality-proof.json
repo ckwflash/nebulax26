@@ -1,0 +1,51 @@
+{
+  "instance_id": "4614ef3b6b98b084",
+  "scenario": "A",
+  "lower_bound": 137.9,
+  "checked_schedule_score": 137.9,
+  "optimality_gap": 0,
+  "method": "Exhaustive relaxation of A036/A075 weekly choices plus unavoidable A059 delay; independent of CP-SAT constraints.",
+  "relaxed_choices_checked": 56,
+  "best_relaxed_choices": [
+    {
+      "A036_weeks": [
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28
+      ],
+      "A075_week": 29
+    }
+  ],
+  "unavoidable_C010_score": 45.5,
+  "contract_breakdown": [
+    {
+      "contract_number": "C006",
+      "overrun_days": 14,
+      "score_weight": 6.1,
+      "weighted_overrun_score": 85.4
+    },
+    {
+      "contract_number": "C010",
+      "overrun_days": 7,
+      "score_weight": 6.5,
+      "weighted_overrun_score": 45.5
+    },
+    {
+      "contract_number": "C014",
+      "overrun_days": 7,
+      "score_weight": 1.0,
+      "weighted_overrun_score": 7.0
+    }
+  ],
+  "assumptions": [
+    "Scenario A forbids ECLO and permits at most one access per activity per week.",
+    "Starts cannot precede their planned week.",
+    "A075 is PM, so A036 cannot co-share its closure in the same week; this exact conflict appears in the supplied rejection report.",
+    "The contract-weight scoring formula matches the reported 137.9."
+  ],
+  "limitation": "Proof uses the supplied instance and reproduced validator semantics. The official executable was not available."
+}
