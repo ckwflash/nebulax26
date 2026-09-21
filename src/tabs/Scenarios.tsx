@@ -2,10 +2,11 @@
 // planning service on a copy of the plan; the approved plan is never modified.
 
 import { RunCard } from "../components/RunCard";
-import { useMemo, useState } from "react";
-import type { Override, Run } from "../api/types";
+import { useState } from "react";
+import type { Run } from "../api/types";
 import { buildPlan, type PlanModel } from "../data/adapt";
 import { usePlanState } from "../state/plan";
+import { scenarioOverrides, stressPresets, type Assumption, type TplKey } from "../data/stress";
 
 /** Only changes the solver can actually take as an Override are offered. */
 const TPLS = [
@@ -21,42 +22,6 @@ const TPLS = [
     hint: "supply rises by 1 night",
   },
 ] as const;
-
-type TplKey = (typeof TPLS)[number]["key"];
-
-interface Assumption {
-  tpl: TplKey;
-  location: string;
-  from: number;
-  to: number;
-}
-
-function toOverrides(
-  a: Assumption,
-  capacityOf: Map<string, number>,
-): Override[] {
-  const cap = capacityOf.get(a.location) ?? 0;
-  const out: Override[] = [];
-  for (let w = a.from; w <= a.to; w++) {
-    if (a.tpl === "close")
-      out.push({ location_id: a.location, week: w, capacity: 0, closed: true });
-    else if (a.tpl === "reduce")
-      out.push({
-        location_id: a.location,
-        week: w,
-        capacity: Math.max(0, cap - 2),
-        closed: false,
-      });
-    else
-      out.push({
-        location_id: a.location,
-        week: w,
-        capacity: cap + 1,
-        closed: false,
-      });
-  }
-  return out;
-}
 
 const METRICS = [
   "Feasibility",
@@ -99,77 +64,19 @@ export function Scenarios() {
   const [result, setResult] = useState<{ run: Run; plan: PlanModel } | null>(
     null,
   );
+  const [terminalRun, setTerminalRun] = useState<Run | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [seconds, setSeconds] = useState(90);
   const [pick, setPick] = useState<number | null>(null);
 
-  const capacityOf = useMemo(
-    () => new Map((plan?.locations ?? []).map((l) => [l.id, l.capacity])),
-    [plan],
-  );
+  if (!plan || !instance || !baselineRun) return null;
 
-  if (!plan || !instance) return null;
-
+  const capacityOf = new Map(plan.locations.map(l => [l.id, l.capacity]));
   const loc = location || plan.locations[0]?.id || "";
   const f = from || plan.busiestWeek;
   const t = to || Math.min(instance.horizon_weeks, plan.busiestWeek + 1);
-
-  // Presets built from this plan's own pressure points, not fixed names.
-  const busiest = [...plan.locations].sort((a, b) => b.peak - a.peak)[0];
-  const presets: {
-    name: string;
-    sev: string;
-    desc: string;
-    a: Assumption[];
-  }[] = busiest
-    ? [
-        {
-          name: "Close the busiest location",
-          sev: "Severe",
-          desc: `${busiest.label} shut for two weeks around its peak (Week ${busiest.peakWeek ?? plan.busiestWeek}).`,
-          a: [
-            {
-              tpl: "close",
-              location: busiest.id,
-              from: busiest.peakWeek ?? plan.busiestWeek,
-              to: Math.min(
-                instance.horizon_weeks,
-                (busiest.peakWeek ?? plan.busiestWeek) + 1,
-              ),
-            },
-          ],
-        },
-        {
-          name: "Squeeze the two busiest locations",
-          sev: "High",
-          desc: "Both lose two nights of supply across the busiest fortnight.",
-          a: [...plan.locations]
-            .sort((x, y) => y.peak - x.peak)
-            .slice(0, 2)
-            .map((l) => ({
-              tpl: "reduce" as TplKey,
-              location: l.id,
-              from: plan.busiestWeek,
-              to: Math.min(instance.horizon_weeks, plan.busiestWeek + 1),
-            })),
-        },
-        {
-          name: "Grant an extra night where it is tightest",
-          sev: "Medium",
-          desc: `One additional access night at ${busiest.label} in its peak week.`,
-          a: [
-            {
-              tpl: "extra",
-              location: busiest.id,
-              from: busiest.peakWeek ?? plan.busiestWeek,
-              to: busiest.peakWeek ?? plan.busiestWeek,
-            },
-          ],
-        },
-      ]
-    : [];
-
-  const overrides = assumps.flatMap((a) => toOverrides(a, capacityOf));
+  const presets = stressPresets(instance, baselineRun);
+  const overrides = scenarioOverrides(assumps, instance, baselineRun);
   const labelOf = (id: string) =>
     plan.locations.find((l) => l.id === id)?.label ?? id;
 
@@ -187,17 +94,25 @@ export function Scenarios() {
 
   const scope = plan.activities.filter((a) =>
     assumps.some(
-      (x) => a.route.includes(x.location) && a.we >= x.from && a.ws <= x.to,
+      (x) => (x.tpl === "close"
+        ? instance.activities.find(row => row.activity_id === a.id)?.protected.includes(x.location)
+        : a.route.includes(x.location)) && a.weeks.some(w => w >= x.from && w <= x.to),
     ),
   );
   const scopeContracts = [...new Set(scope.map((a) => a.contract))];
 
-  const run = async () => {
+  const run = async (changes = assumps, label = "What-if") => {
     setComparisonBaseline(baselineRun);
     setBusy(true);
     setError(null);
+    setResult(null);
+    setTerminalRun(null);
+    setPick(null);
     try {
-      const done = await runWhatIf({ overrides, seconds, label: "What-if" });
+      const selected = scenarioOverrides(changes, instance, baselineRun);
+      if (selected.length > 100) throw new Error("Choose at most 100 location-weeks per simulation.");
+      const done = await runWhatIf({ overrides: selected, seconds, label, baselineId: baselineRun.id });
+      setTerminalRun(done);
       if (!done.schedule || !done.validation) {
         setError(
           done.message ??
@@ -259,9 +174,11 @@ export function Scenarios() {
       tag: "Simulated",
       tagCls: "pill p-info",
       pros: [
-        delta !== null && delta <= 0
-          ? `Score improves by ${Math.abs(delta).toFixed(1)}`
-          : "Shows the cost before anything is committed",
+        delta === 0
+          ? "Score unchanged — the disruption was absorbed within available slack"
+          : delta !== null && delta < 0
+            ? `Score improves by ${Math.abs(delta).toFixed(1)}`
+            : "Shows the cost before anything is committed",
         moved !== null
           ? `${moved} activities move`
           : "Solved on a copy of the plan",
@@ -274,6 +191,15 @@ export function Scenarios() {
           ? "Still feasible, but with less contingency"
           : "Not feasible as specified",
       ],
+    });
+  } else if (terminalRun) {
+    const infeasible = terminalRun.solver_status === "INFEASIBLE";
+    columns.push({
+      name: "Stress result", sub: terminalRun.label || "What-if",
+      values: [infeasible ? "Infeasible" : "No complete result", "—", "—", "—", "—", "—", "—", "—"],
+      tag: infeasible ? "Delivery blocked" : "Search incomplete", tagCls: "pill p-crit",
+      pros: ["The baseline remains unchanged"],
+      cons: [infeasible ? "The selected closures prevent full delivery within the planning horizon" : "No complete schedule was found within this search budget"],
     });
   }
 
@@ -295,6 +221,7 @@ export function Scenarios() {
           value={String(seconds)}
           onChange={(e) => setSeconds(Number(e.target.value))}
           aria-label="Solve budget"
+          disabled={busy}
         >
           {[30, 60, 90, 150].map((s) => (
             <option key={s} value={String(s)}>
@@ -336,6 +263,7 @@ export function Scenarios() {
               className="input"
               style={{ height: 34 }}
               value={tpl}
+              disabled={busy}
               onChange={(e) => setTpl(e.target.value as TplKey)}
             >
               {TPLS.map((t) => (
@@ -353,6 +281,7 @@ export function Scenarios() {
               className="input"
               style={{ height: 34 }}
               value={loc}
+              disabled={busy}
               onChange={(e) => setLocation(e.target.value)}
             >
               {[...plan.locations]
@@ -379,6 +308,7 @@ export function Scenarios() {
                 className="input"
                 style={{ height: 34 }}
                 value={String(f)}
+                disabled={busy}
                 onChange={(e) => setFrom(Number(e.target.value))}
               >
                 {plan.weeks.map((w) => (
@@ -395,6 +325,7 @@ export function Scenarios() {
                 className="input"
                 style={{ height: 34 }}
                 value={String(t)}
+                disabled={busy}
                 onChange={(e) => setTo(Number(e.target.value))}
               >
                 {plan.weeks.map((w) => (
@@ -408,6 +339,7 @@ export function Scenarios() {
 
           <button
             className="btn btn-sm"
+            disabled={busy}
             onClick={() => {
               setAssumps([
                 ...assumps,
@@ -419,6 +351,7 @@ export function Scenarios() {
                 },
               ]);
               setResult(null);
+              setTerminalRun(null);
             }}
           >
             Add this change
@@ -453,9 +386,11 @@ export function Scenarios() {
                   className="x-btn"
                   style={{ width: 24, height: 24, flexShrink: 0 }}
                   aria-label="Remove change"
+                  disabled={busy}
                   onClick={() => {
                     setAssumps(assumps.filter((_, k) => k !== i));
                     setResult(null);
+                    setTerminalRun(null);
                   }}
                 >
                   <svg
@@ -496,7 +431,7 @@ export function Scenarios() {
 
           <button
             className="btn btn-primary"
-            onClick={run}
+            onClick={() => void run()}
             disabled={!assumps.length || busy}
           >
             {busy
@@ -508,6 +443,7 @@ export function Scenarios() {
 
           <div className="divider" />
           <span className="card-h">Stress tests</span>
+          <span className="small muted">Select a test to run it against the viewed schedule. Closures target critical work windows; full delivery may become infeasible.</span>
           {presets.map((p) => (
             <button
               key={p.name}
@@ -520,9 +456,10 @@ export function Scenarios() {
                 border: "1px solid #e6e9ef",
                 borderRadius: 7,
               }}
+              disabled={busy}
               onClick={() => {
                 setAssumps(p.a);
-                setResult(null);
+                void run(p.a, p.name);
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -648,6 +585,7 @@ export function Scenarios() {
               }}
             />
           )}
+          {terminalRun && !result && <RunCard candidate={terminalRun} baseline={comparisonBaseline} />}
           {result?.run.diff && (
             <div
               className="card"

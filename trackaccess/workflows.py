@@ -171,6 +171,18 @@ def make_batch(instance_id, baseline_id, specs, seconds, *, batch_id=None, metad
     batch = {'id': bid, 'kind': 'batch', 'instance_id': instance_id, 'baseline_id': baseline_id,
              'status': 'queued', 'seconds': seconds, 'remaining_seconds': float(seconds), 'children': children,
              'created_at': api.now(), 'solver_version': SOLVER_VERSION, **(metadata or {})}
+    if batch.get('execution') == 'parallel':
+        from .library import configure_scenarios
+        configure_scenarios(batch)
+    if all(c['status'] not in ('queued', 'running') for c in children):
+        batch.update(status='completed', finished_at=api.now())
+        try:
+            api.store._write('runs/' + bid, batch, 0)
+        except Conflict:
+            batch = api.run_for(bid)
+        from .library import register_run
+        register_run(batch)
+        return batch
     try:
         api.submit_job(batch)
     except Conflict:
@@ -179,6 +191,9 @@ def make_batch(instance_id, baseline_id, specs, seconds, *, batch_id=None, metad
 
 
 def execute_batch(batch, lease, cancelled):
+    if batch.get('execution') == 'parallel':
+        from .library import execute_scenarios
+        return execute_scenarios(batch, lease, cancelled)
     api = server()
     batch = copy.deepcopy(batch)
     batch['status'] = 'running'

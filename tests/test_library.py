@@ -1,4 +1,5 @@
 import io
+import copy
 import threading
 import time
 import zipfile
@@ -15,6 +16,7 @@ from trackaccess.store import StorageError, Store
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv('NIGHTSHIFT_DATA', str(tmp_path))
     monkeypatch.delenv('NIGHTSHIFT_GCS_BUCKET', raising=False)
+    monkeypatch.setenv('NIGHTSHIFT_SOLVER_THREADS', '6')
     monkeypatch.setattr(api, 'store', Store())
     with TestClient(api.app) as value:
         yield value
@@ -38,6 +40,18 @@ def wait(client, bid):
             return run
         time.sleep(.03)
     pytest.fail('Batch did not finish')
+
+
+@pytest.mark.parametrize('cores', [1, 2, 4, 6, 8, 10, 32])
+def test_parallel_scenarios_share_the_cpu_budget(monkeypatch, cores):
+    monkeypatch.setenv('NIGHTSHIFT_SOLVER_THREADS', str(cores))
+    batch = {'force': True, 'children': [{'scenario': s} for s in 'ABC']}
+    library.configure_scenarios(batch)
+    threads = [child['solver_threads'] for child in batch['children']]
+    assert all(t >= 1 for t in threads)
+    assert sum(sorted(threads, reverse=True)[:batch['parallel_workers']]) == cores
+    if cores == 8:
+        assert threads == [3, 3, 2]
 
 
 def test_all_scenarios_durable_history_and_exact_exports(client, monkeypatch):
@@ -76,26 +90,105 @@ def test_all_scenarios_durable_history_and_exact_exports(client, monkeypatch):
 def test_progress_is_visible_before_last_scenario_finishes(client, monkeypatch):
     book = upload(client)
     original = api.compute_run
-    started = threading.Event()
+    started = threading.Barrier(4)
     release = threading.Event()
     def controlled(run, cancelled, persist, budget=None):
+        assert run['solver_threads'] == 2
+        started.wait(10)
         if run['scenario'] == 'B':
-            started.set()
             assert release.wait(10)
         return original(run, cancelled, persist, budget)
     monkeypatch.setattr(api, 'compute_run', controlled)
     batch = client.post(f"/api/instances/{book['id']}/solve-all", json={'seconds': 1}).json()
     try:
-        assert started.wait(10)
-        history = client.get(f"/api/instances/{book['id']}/history").json()
+        started.wait(10)  # All three entered compute before any can finish.
+        for _ in range(100):
+            history = client.get(f"/api/instances/{book['id']}/history").json()
+            if all(history['latest'][s]['status'] == 'completed' for s in 'AC'):
+                break
+            time.sleep(.03)
         assert history['latest']['A']['status'] == 'completed'
         assert history['latest']['B']['status'] == 'running'
-        assert history['latest']['C']['status'] == 'queued'
-        assert client.get(f"/api/runs/{history['latest']['C']['id']}/export").status_code == 409
+        assert history['latest']['C']['status'] == 'completed'
+        assert client.get(f"/api/runs/{history['latest']['B']['id']}/export").status_code == 409
         assert api.active_jobs == {batch['id']}
     finally:
         release.set()
     wait(client, batch['id'])
+
+
+def test_cached_scenarios_survive_restart_and_skip_solver(client, monkeypatch):
+    book = upload(client)
+    first = wait(client, client.post(f"/api/instances/{book['id']}/solve-all", json={'seconds': 1}).json()['id'])
+    monkeypatch.setattr(api, 'store', Store())
+    def forbidden(*args, **kwargs):
+        pytest.fail('A cache hit must not submit computation')
+    monkeypatch.setattr(api, 'submit_job', forbidden)
+    second = client.post(f"/api/instances/{book['id']}/solve-all", json={'seconds': 1}).json()
+    assert second['status'] == 'completed'
+    assert second['id'] != first['id']
+    for old, cached in zip(first['children'], second['children']):
+        assert cached['cache_hit'] and cached['cached_from_id'] == old['id']
+        assert cached['elapsed_seconds'] == 0 and cached['schedule'] == old['schedule']
+        assert client.get(f"/api/runs/{cached['id']}/export").status_code == 200
+
+
+def test_partial_cache_force_and_budget_invalidation(client, monkeypatch):
+    book = upload(client)
+    endpoint = f"/api/instances/{book['id']}/solve-all"
+    first = wait(client, client.post(endpoint, json={'seconds': 1}).json()['id'])
+    stored = api.store.get('runs/' + first['id'])
+    api.store.put(stored['children'][1]['_cache_key'], {})
+    original = api.compute_run
+    calls = []
+    def counted(run, *args, **kwargs):
+        calls.append(run['scenario'])
+        return original(run, *args, **kwargs)
+    monkeypatch.setattr(api, 'compute_run', counted)
+    partial = wait(client, client.post(endpoint, json={'seconds': 1}).json()['id'])
+    assert calls == ['B']
+    assert [c['cache_hit'] for c in partial['children']] == [True, False, True]
+    calls.clear()
+    wait(client, client.post(endpoint, json={'seconds': 1, 'force': True}).json()['id'])
+    assert sorted(calls) == list('ABC')
+    calls.clear()
+    wait(client, client.post(endpoint, json={'seconds': 2}).json()['id'])
+    assert sorted(calls) == list('ABC')
+
+
+def test_cache_identity_includes_effective_constraints_and_versions(client, monkeypatch):
+    book = upload(client)
+    child = api.prepare_run(api.RunRequest(instance_id=book['id'], scenario='A', seconds=1))
+    key = library.scenario_cache_key(child)
+    assert library.scenario_cache_key({**child, 'id': 'another', 'label': 'Renamed'}) == key
+    for field, value in [('scenario', 'B'), ('instance_id', '0' * 16), ('baseline_id', 'approved'),
+                         ('bookings', [{'activity_id': 'A001', 'week_from': 1, 'week_to': 1}]),
+                         ('overrides', [{'location_id': 'L001', 'week': 1, 'closed': True}])]:
+        assert library.scenario_cache_key({**child, field: value}) != key
+    monkeypatch.setattr(library, 'SOLVER_VERSION', 'new-model')
+    assert library.scenario_cache_key(child) != key
+
+
+def test_parallel_recovery_keeps_completed_children_and_exhausted_budgets(client, monkeypatch):
+    book = upload(client)
+    first = wait(client, client.post(f"/api/instances/{book['id']}/solve-all", json={'seconds': 1}).json()['id'])
+    batch = api.store.get('runs/' + first['id'])
+    batch.update(id='parallel-recovery', status='running', remaining_seconds=0, force=True)
+    for index, child in enumerate(batch['children']):
+        child.update(id=f'parallel-recovery--{index}', parent_id=batch['id'])
+        if index:
+            child.update(status='running', allocated_seconds=1, _deadline_at=api.store.clock() - 20)
+    completed = copy.deepcopy(batch['children'][0])
+    api.store.put('runs/' + batch['id'], batch)
+    def forbidden(*args, **kwargs):
+        pytest.fail('Recovery must not grant a fresh computation budget')
+    monkeypatch.setattr(api, 'solve', forbidden)
+    recovered = wait(client, batch['id'])
+    assert recovered['children'][0] == api.public_run(completed)
+    assert api.store.get('runs/' + batch['id'])['children'][0] == completed
+    assert recovered['remaining_seconds'] == 0
+    assert all(c['status'] == 'completed' for c in recovered['children'])
+    assert [c['budget_used_seconds'] for c in recovered['children'][1:]] == [1, 1]
 
 
 def test_library_backfills_older_books_and_keeps_names_and_dates(client):

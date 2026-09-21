@@ -1,8 +1,13 @@
 """Durable dataset catalogue, scenario batches and compact schedule history."""
+import copy
 import hashlib
 import io
+import json
+import logging
+import os
+import threading
 import zipfile
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from uuid import uuid4
 
 from fastapi import APIRouter
@@ -11,6 +16,8 @@ from pydantic import Field
 
 from . import RULE_VERSION
 from .domain import Instance, Record
+from .planning import SOLVER_VERSION
+from .store import LeaseLost, StorageError
 from .workflows import make_batch, plan_control, server
 
 router = APIRouter()
@@ -121,6 +128,7 @@ def history(instance_id: str):
 class ScenarioBatchRequest(Record):
     client_request_id: str = Field(default_factory=lambda: uuid4().hex, pattern=r'^[a-zA-Z0-9_-]{1,100}$')
     seconds: int = Field(default=90, ge=1, le=90)
+    force: bool = False
 
 
 @router.post('/api/instances/{instance_id}/solve-all', status_code=202)
@@ -132,8 +140,117 @@ def solve_all(instance_id: str, request: ScenarioBatchRequest):
     batch = make_batch(instance_id, plan_control(instance_id)['approved_run_id'],
                        [{'scenario': s, 'seconds': request.seconds, 'label': 'Scenario ' + s} for s in 'ABC'],
                        3 * request.seconds, batch_id=bid,
-                       metadata={'purpose': 'dataset_scenarios', 'per_child_seconds': request.seconds})
+                       metadata={'purpose': 'dataset_scenarios', 'per_child_seconds': request.seconds,
+                                 'execution': 'parallel', 'force': request.force})
     return api.public_run(batch)
+
+
+CACHE_FIELDS = ('schedule', 'validation', 'solver_status', 'model_bound', 'optimization',
+                'diff', 'deadline_relaxed', 'message')
+
+
+def scenario_cache_key(child):
+    inputs = {k: child.get(k) for k in ('instance_id', 'scenario', 'seconds', 'baseline_id',
+                                       'overrides', 'bookings', 'philosophy', 'weights', 'resume_from_id')}
+    payload = [RULE_VERSION, SOLVER_VERSION, inputs]
+    return 'scenario-cache/' + hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+
+def restore_scenario(child):
+    api = server()
+    cached = api.store.get(child['_cache_key'])
+    if not cached or cached.get('solver_version') != SOLVER_VERSION:
+        return False
+    if cached.get('schedule'):
+        if (cached.get('validation') or {}).get('rule_version') != RULE_VERSION:
+            return False
+        checked = api.checked_run({**child, 'schedule': cached['schedule']})
+        if not checked['feasible']:
+            return False
+    elif cached.get('solver_status') != 'INFEASIBLE':
+        return False
+    child.update({k: copy.deepcopy(cached[k]) for k in CACHE_FIELDS if k in cached})
+    if child.get('schedule'):
+        child['validation'] = checked
+    child.update(status='completed' if child.get('schedule') else 'no_solution', cache_hit=True,
+                 cached_from_id=cached['id'], cached_elapsed_seconds=cached.get('elapsed_seconds'),
+                 elapsed_seconds=0, budget_used_seconds=0, allocated_seconds=0, finished_at=api.now())
+    return True
+
+
+def configure_scenarios(batch):
+    total_threads = max(1, min(32, int(os.getenv('NIGHTSHIFT_SOLVER_THREADS', '4'))))
+    batch['parallel_workers'] = min(3, total_threads)
+    threads, extra = divmod(total_threads, batch['parallel_workers'])
+    for index, child in enumerate(batch['children']):
+        child.update(solver_threads=threads + int(index < extra), cache_hit=False)
+        child['_cache_key'] = scenario_cache_key(child)
+        if not batch.get('force'):
+            restore_scenario(child)
+
+
+def execute_scenarios(batch, lease, cancelled):
+    """Three independent budgets, one lease and serialized parent checkpoints."""
+    api = server()
+    batch = copy.deepcopy(batch)
+    lock = threading.RLock()
+
+    def checkpoint():
+        if cancelled.is_set():
+            raise LeaseLost('Batch ownership was lost')
+        lease.update({'children': batch['children'], 'remaining_seconds': batch['remaining_seconds']})
+
+    def execute(index):
+        with lock:
+            child = batch['children'][index]
+            if child['status'] not in ('queued', 'running'):
+                return
+            newly_started = child['status'] == 'queued'
+            if newly_started and not batch.get('force') and restore_scenario(child):
+                checkpoint()
+                return
+            if newly_started:
+                allocation = min(batch['per_child_seconds'], batch['remaining_seconds'])
+                batch['remaining_seconds'] -= allocation
+                child.update(status='running', started_at=api.now(), seconds=allocation,
+                             allocated_seconds=allocation, _deadline_at=api.store.clock() + allocation)
+                checkpoint()
+            allocation = child['allocated_seconds']
+            remaining = allocation if newly_started else max(0, min(allocation, child['_deadline_at'] - api.store.clock()))
+            consumed_before = allocation - remaining
+            # compute_run mutates its run while checkpoint callbacks run on another
+            # thread. Each solver owns a copy; shared children change only under lock.
+            working = copy.deepcopy(child)
+
+        def persist(changes):
+            with lock:
+                child.update(changes)
+                checkpoint()
+
+        completed = api.compute_run(working, cancelled, persist, remaining)
+        with lock:
+            child.update(completed)
+            used = min(allocation, consumed_before + completed.get('elapsed_seconds', remaining))
+            child['budget_used_seconds'] = used
+            batch['remaining_seconds'] += max(0, allocation - used)
+            checkpoint()
+        if (completed.get('validation') or {}).get('feasible') or completed.get('solver_status') == 'INFEASIBLE':
+            if not completed.get('error'):
+                try:
+                    api.store.put(child['_cache_key'], {**completed, 'solver_version': SOLVER_VERSION})
+                except StorageError:
+                    logging.getLogger(__name__).warning('Scenario result saved, but cache write unavailable')
+
+    with ThreadPoolExecutor(max_workers=batch['parallel_workers'], thread_name_prefix='scenario') as workers:
+        futures = [workers.submit(execute, i) for i in range(len(batch['children']))]
+        try:
+            for future in as_completed(futures):
+                future.result()
+        except BaseException:
+            cancelled.set()
+            raise
+    lease.update({'children': batch['children'], 'remaining_seconds': batch['remaining_seconds'],
+                  'status': 'completed', 'finished_at': api.now()}, finish=True)
 
 
 @router.get('/api/instances/{instance_id}/source')

@@ -43,3 +43,10 @@ Use the actual figures from the final rehearsal. Test a fresh browser, reload af
 adoption, printed reports and exported ZIPs. Verify model quota for Ask and Cloud Run
 checkpoint recovery. Recording and publishing the video and repository remain
 owner-account steps.
+
+
+### Simulate stress tests
+
+Open **Scenarios** under **Simulate**. Each stress preset runs immediately against the viewed plan. Presets close the corridor used by the least flexible activity across weeks needed to retain its contract completion date; the two-workfront and extended-outage variants increase the disruption. All closures appear in the assumptions list and enter the actual solver as zero-capacity, closed location-weeks.
+
+Compare the checked score, feasibility, overrun and changed activities. A zero score delta is reported as absorbed disruption. Scenario B may return a diagnostic schedule with missed-date violations when no on-time solution exists; it cannot be adopted or exported. A proven infeasible case appears as **Delivery blocked**, with no invented score. Custom reductions and extra nights are applied to the baseline's effective supply, including existing overrides.

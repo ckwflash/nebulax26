@@ -243,7 +243,7 @@ def compute_run(run, cancelled, persist, budget=None):
             result = solve(instance, run['scenario'], seconds, [Override(**o) for o in run['overrides']], baseline,
                            progress, cancel_event=cancelled, bookings=run.get('bookings', []),
                            philosophy=run.get('philosophy'), weights=run.get('weights'),
-                           warm_start=Schedule(**incumbent) if incumbent else None)
+                           warm_start=Schedule(**incumbent) if incumbent else None, workers=run.get('solver_threads'))
     finally:
         checkpoints.shutdown(wait=True)
     if checkpoint is not None:

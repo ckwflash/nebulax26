@@ -11,7 +11,7 @@ export function resultStatus(run: Run | undefined) {
   return "No feasible result";
 }
 export function ScenarioResults() {
-  const { instance, history, run: viewed, viewRun, solveAll, solving, loadSavedRun, refreshHistory, error } = usePlanState();
+  const { instance, history, approved, switchScenario, switchingScenario, solveAll, solving, loadSavedRun, refreshHistory, error } = usePlanState();
   const [failure, setFailure] = useState("");
   const [opening, setOpening] = useState(false);
   if (!instance) return null;
@@ -23,17 +23,18 @@ export function ScenarioResults() {
   };
   return <section className="card" aria-label="Scenario results" style={{ padding: "14px 18px", flexShrink: 0 }}>
     <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
-      <div style={{ flex: 1 }}><h2 className="h2">Scenario results</h2><span className="small muted">{instance.name} · Saved automatically · 90s maximum per scenario</span></div>
+      <div style={{ flex: "1 1 180px", minWidth: 0 }}><h2 className="h2">Scenario results</h2><span className="small muted">{instance.name} · Saved automatically · 90s maximum per scenario</span></div>
       <button className="btn btn-sm" disabled={solving || opening} onClick={() => void act(solveAll)}>{versions.length ? "Re-solve A / B / C" : "Solve A / B / C"}</button>
     </div>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
       {(["A", "B", "C"] as ScenarioId[]).map(scenario => {
         const result = history?.latest[scenario];
-        return <div key={scenario} style={{ border: `1px solid ${viewed?.id === result?.id && result ? "#447ad2" : "#dfe3ea"}`, borderRadius: 6, padding: "10px 12px" }}>
+        const active = !!result && approved?.approved_run_id === result.id;
+        return <div key={scenario} style={{ border: `1px solid ${active ? "#447ad2" : "#dfe3ea"}`, borderRadius: 6, padding: "10px 12px" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}><strong>Scenario {scenario}</strong><span className={`pill ${available(result ?? null) ? "p-ok" : result && pending(result) ? "p-info" : "p-warn"}`}>{resultStatus(result)}</span></div>
           <div className="small muted" style={{ margin: "5px 0 8px" }}>{SCENARIO_LABEL[scenario]}{result && result.label !== `Scenario ${scenario}` && <> · {result.label}</>}{result?.validation && <> · Local score {result.validation.score}</>}</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button className="btn btn-sm" disabled={!result?.schedule || !result.validation || pending(result)} onClick={() => result && viewRun(result)}>{viewed?.id === result?.id && result ? "Viewing" : `View ${scenario}`}</button>
+            <button className="btn btn-sm" disabled={!available(result ?? null) || !!switchingScenario || active} onClick={() => void act(() => switchScenario(scenario))}>{switchingScenario === scenario ? "Applying…" : active ? "Active plan" : `Use ${scenario}`}</button>
             {available(result ?? null) ? <a className="btn btn-sm" href={`/api/runs/${result!.id}/export`} download>Download {scenario}.zip</a> : <button className="btn btn-sm" disabled>Download {scenario}.zip</button>}
           </div>
           {result && !pending(result) && !available(result) && <p className="small" style={{ color: "#a12a22", marginBottom: 0 }}>{result.error ?? result.message ?? "No complete, feasible schedule is available. Review constraints or try another solve."}</p>}

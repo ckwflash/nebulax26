@@ -18,7 +18,7 @@ from .planning import Booking, Weights, check_planning, placements
 DEADLINE_PRICE = 10_000
 
 
-def solve(instance: Instance, scenario: str, seconds=90, overrides=(), baseline: Schedule | None = None, callback: Callable | None = None, cancel_event=None, relax_deadline=False, bookings=(), philosophy=None, weights=None, warm_start=None):
+def solve(instance: Instance, scenario: str, seconds=90, overrides=(), baseline: Schedule | None = None, callback: Callable | None = None, cancel_event=None, relax_deadline=False, bookings=(), philosophy=None, weights=None, warm_start=None, workers=None):
     if scenario not in ("A", "B", "C"):
         raise ValueError("Scenario must be A, B or C.")
     started = time.monotonic()
@@ -277,7 +277,7 @@ def solve(instance: Instance, scenario: str, seconds=90, overrides=(), baseline:
 
     engine = cp_model.CpSolver()
     engine.parameters.max_time_in_seconds = max(0.1, seconds - (time.monotonic() - started))
-    engine.parameters.num_search_workers = max(1, min(32, int(os.getenv("NIGHTSHIFT_SOLVER_THREADS", "4"))))
+    engine.parameters.num_search_workers = max(1, min(32, int(workers if workers is not None else os.getenv("NIGHTSHIFT_SOLVER_THREADS", "4"))))
     engine.parameters.random_seed = 42
     collector = Incumbents()
     finished = threading.Event()
@@ -339,7 +339,7 @@ def solve(instance: Instance, scenario: str, seconds=90, overrides=(), baseline:
         remaining = max(0, seconds - (time.monotonic() - started))
         if remaining <= 0:
             return result
-        fallback = solve(instance, scenario, remaining, overrides, baseline, callback, cancel_event=cancel_event, relax_deadline=True, bookings=bookings, warm_start=warm_start)
+        fallback = solve(instance, scenario, remaining, overrides, baseline, callback, cancel_event=cancel_event, relax_deadline=True, bookings=bookings, warm_start=warm_start, workers=workers)
         fallback["elapsed_seconds"] = round(time.monotonic() - started, 2)
         fallback["deadline_relaxed"] = True
         return fallback

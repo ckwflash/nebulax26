@@ -78,7 +78,7 @@ export function Contracts({ go }: { go: (t: TabId) => void }) {
       </div>
 
       {tab === "c" && (
-        <div className="card" style={{ overflow: "hidden" }}>
+        <div className="card" style={{ overflow: "hidden", flexShrink: 0 }}>
           <table className="tbl">
             <thead>
               <tr>
@@ -153,7 +153,7 @@ export function Contracts({ go }: { go: (t: TabId) => void }) {
               </>
             )}
           </div>
-          <div className="card" style={{ overflow: "hidden" }}>
+          <div className="card" style={{ overflow: "hidden", flexShrink: 0 }}>
             <table className="tbl">
               <thead>
                 <tr>

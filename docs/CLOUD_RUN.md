@@ -1,4 +1,8 @@
-> Current release (19 September): `nightshift-planning-v7` serves 100% of traffic with **4 vCPU / 4 solver threads / 4 GiB**. The remote upload frontend and planning workflows are integrated. Corrected local scores are **137.9 / 30 / 62.7** under `ps1-local-1.2`. Earlier verification sections below are historical. See [the current handoff](DEPLOYMENT_HANDOFF.md) and [deployment record](deployment.json).
+> Current release: `nightshift-stress-20260919-064348`, 100% traffic, **8 vCPU / 8 solver threads / 4 GiB**. Includes the current stress-test changes. The top Active plan selector is removed; use A/B/C in Scenario results. Cloud Build passed; additional testing was skipped at the user's request. Prior release details below are historical.
+
+> Current release: `nightshift-scenario-20260919-063122`, 100% traffic, **8 vCPU / 8 solver threads / 4 GiB**. A/B/C selection immediately adopts the plan; its selector stays visible. Scenario batches run concurrently with 3/3/2 threads. Further release validation was skipped at the user's request. Prior release details below are historical.
+
+> Current release (19 September): `nightshift-library-20260919-061014` serves 100% of traffic with **4 vCPU / 4 solver threads / 4 GiB**. The Dataset library, historical datasets and schedule versions, original-input downloads and printable reports are live. Corrected local scores remain **137.9 / 30 / 62.7** under `ps1-local-1.2`. Earlier verification sections below are historical. See [the current handoff](DEPLOYMENT_HANDOFF.md) and [deployment record](deployment.json).
 
 # Nightshift on Google Cloud Run
 
@@ -30,7 +34,7 @@ Set `NIGHTSHIFT_CHAT_PROVIDER=evidence` through a new Cloud Run revision to disa
 
 The session uses the SDK at `/private/tmp/google-cloud-sdk/bin/gcloud` with `CLOUDSDK_CONFIG=/private/tmp/codex-gcloud-config`. These temporary paths may disappear after restart; use an accessible authenticated SDK for later maintenance.
 
-The `.gcloudignore` allowlist sends 76 build inputs (about 2.0 MiB before compression), including public PS1 data and checked output fixtures. Local credentials, uploaded demand books and unrelated datasets are excluded. Cloud Build builds the multi-stage Dockerfile; deployment uses its immutable image digest. Runtime ADC credentials come from the attached service account.
+The library release's `.gcloudignore` allowlist sent 81 build inputs (about 2.0 MiB before compression), including public PS1 data and checked output fixtures. Local credentials, uploaded demand books and unrelated datasets are excluded. Cloud Build builds the multi-stage Dockerfile; deployment uses its immutable image digest. Runtime ADC credentials come from the attached service account.
 
 Before an update, let current jobs finish when possible. Keep the previous working image digest for rollback. Conditional run ownership also guards replacement-instance recovery. Rollbacks must not delete the state bucket.
 

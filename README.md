@@ -11,12 +11,14 @@ Requirements: Python 3.11+, Node 22+, and `uv`.
 ```sh
 uv sync --extra test
 npm ci
-bash scripts/dev.sh
+npm run dev
 ```
 
-Open http://127.0.0.1:5173. The API runs at http://127.0.0.1:8000; API documentation is at `/docs`. Stop the dev script with Ctrl+C. Alternatively run `uv run uvicorn trackaccess.api:app --port 8000` and `npm run dev` in separate terminals.
+Open http://127.0.0.1:5173. `npm run dev` starts the Python API, waits for it to be ready, then starts Vite. The API runs at http://127.0.0.1:8000; API documentation is at `/docs`. Ctrl+C stops both services. `bash scripts/dev.sh` runs the same launcher. Alternatively run `uv run uvicorn trackaccess.api:app --port 8000` and `npm run dev:ui` in separate terminals (add `--env-file .env` to the API command if needed).
 
-The app opens with the locally checked public A schedule. Choose B/C and Run planner, expand a contract, ask the control room about it, or upload eight CSV files/a ZIP. Previews do not automatically replace the selected schedule. Export is enabled only for complete, locally checked schedules.
+Local development uses the included public schedule and local storage by default; it does not need the hosted demo or cloud credentials. `/api/demo` is served by the local Python API. Keep `NIGHTSHIFT_GCS_BUCKET` empty for local storage. If the page reports a service error, check the API logs and retry; requests time out after 30 seconds instead of leaving the loading screen stuck.
+
+The app opens with the locally checked public A schedule. Choose Use A/B/C in Scenario results to use that scenario immediately, expand a contract, ask the control room about it, or upload eight CSV files/a ZIP. Uploads solve all three scenarios concurrently; saved feasible results are reused when switching. Previews do not automatically replace the selected schedule. Export is enabled only for complete, locally checked schedules.
 
 ## Conversation
 

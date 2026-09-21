@@ -32,30 +32,42 @@ export class ApiError extends Error {
 }
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
-  let response: Response;
+  init?.signal?.throwIfAborted();
+  const controller = new AbortController();
+  const cancel = () => controller.abort(init?.signal?.reason);
+  init?.signal?.addEventListener("abort", cancel, { once: true });
+  const timeout = setTimeout(() => controller.abort(), 30_000);
   const isForm = init?.body instanceof FormData;
   try {
-    response = await fetch(path, {
+    const response = await fetch(path, {
       ...init,
+      signal: controller.signal,
       headers: init?.body && !isForm
         ? { "content-type": "application/json", ...init?.headers }
         : init?.headers,
     });
+    if (!response.ok) {
+      let detail = `The planning service returned ${response.status} ${response.statusText}.`.trim();
+      try {
+        const body = await response.json();
+        if (body && typeof body.detail === "string") detail = body.detail;
+      } catch {
+        controller.signal.throwIfAborted();
+        /* non-JSON error body */
+      }
+      throw new ApiError(detail, response.status);
+    }
+    return (await response.json()) as T;
   } catch (e) {
     if (init?.signal?.aborted) throw e;
+    if (controller.signal.aborted)
+      throw new ApiError("The planning service did not respond within 30 seconds. Check that it is running, then try again.", 408);
+    if (e instanceof ApiError) throw e;
     throw new ApiError("The planning service is not reachable.", 0);
+  } finally {
+    clearTimeout(timeout);
+    init?.signal?.removeEventListener("abort", cancel);
   }
-  if (!response.ok) {
-    let detail = `${response.status} ${response.statusText}`;
-    try {
-      const body = await response.json();
-      if (body && typeof body.detail === "string") detail = body.detail;
-    } catch {
-      /* non-JSON error body */
-    }
-    throw new ApiError(detail, response.status);
-  }
-  return (await response.json()) as T;
 }
 
 /** The eight files the demand book must contain (domain.py FILES). */
@@ -85,16 +97,16 @@ export const api = {
     return call<InstanceSummary>("/api/instances", { method: "POST", body: form });
   },
   health: () => call<HealthReply>("/api/health"),
-  demo: () => call<DemoPayload>("/api/demo"),
-  instance: (id: string) => call<InstanceSummary>(`/api/instances/${id}`),
+  demo: (signal?: AbortSignal) => call<DemoPayload>("/api/demo", { signal }),
+  instance: (id: string, signal?: AbortSignal) => call<InstanceSummary>(`/api/instances/${id}`, { signal }),
   datasets: (signal?: AbortSignal) => call<DatasetEntry[]>("/api/instances", { signal }),
   history: (id: string, signal?: AbortSignal) => call<DatasetHistory>(`/api/instances/${id}/history`, { signal }),
-  solveAll: (id: string, requestId: string) => call<ScenarioBatch>(`/api/instances/${id}/solve-all`, {
-    method: "POST", body: JSON.stringify({ client_request_id: requestId, seconds: 90 }),
+  solveAll: (id: string, requestId: string, force = false) => call<ScenarioBatch>(`/api/instances/${id}/solve-all`, {
+    method: "POST", body: JSON.stringify({ client_request_id: requestId, seconds: 90, force }),
   }),
   run: (id: string, signal?: AbortSignal) =>
     call<Run>(`/api/runs/${id}`, { signal }),
-  plan: (id: string) => call<ApprovedPlan>(`/api/instances/${id}/plan`),
+  plan: (id: string, signal?: AbortSignal) => call<ApprovedPlan>(`/api/instances/${id}/plan`, { signal }),
   adopt: (id: string, runId: string, plan: ApprovedPlan) =>
     call<ApprovedPlan>(`/api/instances/${id}/plan/adopt`, {
       method: "POST",

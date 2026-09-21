@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import { api, waitForRun } from "../api/client";
+import { api, ApiError, waitForRun } from "../api/client";
 import type {
   ApprovedPlan,
   DatasetHistory,
@@ -37,6 +37,7 @@ interface PlanState {
   approved: ApprovedPlan | null;
   solving: boolean;
   solvingLabel: string;
+  switchingScenario: ScenarioId | null;
   signal: AbortSignal;
   reload: () => void;
   loadDemandBook: (files: File[], name?: string) => Promise<void>;
@@ -92,14 +93,17 @@ export function PlanProvider({
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [solving, setSolving] = useState(false);
   const [solvingLabel, setSolvingLabel] = useState("");
+  const [switchingScenario, setSwitchingScenario] = useState<ScenarioId | null>(null);
+  const scenarioChange = useRef<AbortSignal | null>(null);
   const scope = useRef(new AbortController());
   const [signal, setSignal] = useState(scope.current.signal);
   const currentId = useRef(initial?.instance.id);
   const [sampleId, setSampleId] = useState(initial?.instance.id ?? "");
-  const selectInstance = useCallback(async (id: string) => {
-    scope.current.abort();
-    const controller = new AbortController();
-    scope.current = controller;
+  const selectInstance = useCallback(async (id: string, controller = new AbortController()) => {
+    if (scope.current !== controller) {
+      scope.current.abort();
+      scope.current = controller;
+    }
     setSignal(controller.signal);
     currentId.current = id;
     setStatus("loading");
@@ -110,10 +114,12 @@ export function PlanProvider({
     setApproved(null);
     setInstance(null);
     setSolving(false);
+    setSwitchingScenario(null);
+    scenarioChange.current = null;
     try {
       const [book, approval, saved] = await Promise.all([
-        api.instance(id),
-        api.plan(id),
+        api.instance(id, controller.signal),
+        api.plan(id, controller.signal),
         api.history(id, controller.signal),
       ]);
       controller.signal.throwIfAborted();
@@ -167,11 +173,11 @@ export function PlanProvider({
       throw new Error("This version has no complete schedule to view.");
     setRun(saved);
   }, []);
-  const launchAll = useCallback(async (id: string) => {
+  const launchAll = useCallback(async (id: string, force = false) => {
     const signal = scope.current.signal;
     setSolving(true); setSolvingLabel("Queuing scenarios A, B and C…"); setError(null);
     try {
-      const batch = await api.solveAll(id, crypto.randomUUID());
+      const batch = await api.solveAll(id, crypto.randomUUID(), force);
       signal.throwIfAborted();
       setHistory(previous => ({ instance_id: id, versions: previous?.versions ?? [],
         latest: Object.fromEntries(batch.children.map(child => [child.scenario, child])) }));
@@ -181,19 +187,36 @@ export function PlanProvider({
     } finally { if (!signal.aborted) { setSolving(false); setSolvingLabel(""); } }
   }, []);
   const solveAll = useCallback(async () => {
-    if (instance && !solving && !batchPending) await launchAll(instance.id);
+    if (instance && !solving && !batchPending) await launchAll(instance.id, true);
   }, [instance, solving, batchPending, launchAll]);
-  const load = useCallback(async () => {
-    if (initial) return;
+  const load = useCallback(async (sample = false) => {
+    if (initial && !sample) return;
+    scope.current.abort();
+    const controller = new AbortController();
+    scope.current = controller;
+    setSignal(controller.signal);
+    setStatus("loading");
+    setError(null);
     try {
-      const id = currentId.current ?? rememberedInstance();
-      if (id) await selectInstance(id);
-      else {
-        const demo = await api.demo();
-        setSampleId(demo.instance.id);
-        await selectInstance(demo.instance.id);
+      const id = sample ? null : currentId.current ?? rememberedInstance();
+      if (id) {
+        try {
+          await selectInstance(id, controller);
+          return;
+        } catch (e) {
+          controller.signal.throwIfAborted();
+          // A reset local store can leave an obsolete browser preference behind.
+          if (!(e instanceof ApiError) || e.status !== 404) throw e;
+          setStatus("loading");
+          setError(null);
+        }
       }
+      const demo = await api.demo(controller.signal);
+      controller.signal.throwIfAborted();
+      setSampleId(demo.instance.id);
+      await selectInstance(demo.instance.id, controller);
     } catch (e) {
+      if (controller.signal.aborted) return;
       setError(e instanceof Error ? e.message : "Could not load the plan.");
       setStatus("error");
     }
@@ -217,10 +240,12 @@ export function PlanProvider({
   }, [instance]);
   const adoptRun = useCallback(
     async (candidate: Run) => {
-      if (!instance || !approved || !available(candidate))
+      if (!instance || !approved || candidate.instance_id !== instance.id || !available(candidate))
         throw new Error("Select a completed feasible schedule.");
+      if (candidate.id === approved.approved_run_id) { setRun(approved.run); return; }
+      const signal = scope.current.signal;
       const result = await api.adopt(instance.id, candidate.id, approved);
-      if (instance.id === currentId.current) {
+      if (!signal.aborted && instance.id === currentId.current) {
         setApproved(result);
         setRun(result.run);
         setError(null);
@@ -230,44 +255,49 @@ export function PlanProvider({
   );
   const switchScenario = useCallback(
     async (scenario: ScenarioId, seconds = 90) => {
-      if (!instance) return;
+      if (!instance || scenarioChange.current) return;
       const saved = history?.latest[scenario];
-      if (saved?.schedule && saved.validation) { setRun(saved); return; }
-      if (solving || batchPending) return;
+      if (!saved?.schedule && (solving || batchPending)) return;
       const signal = scope.current.signal;
-      setSolving(true);
-      setSolvingLabel(`Solving scenario ${scenario}…`);
+      scenarioChange.current = signal;
+      setSwitchingScenario(scenario);
       setError(null);
       try {
-        const started = await api.startRun({
-          instance_id: instance.id,
-          scenario,
-          seconds,
-          baseline_id: approved?.approved_run_id,
-          label: `Scenario ${scenario}`,
-        });
-        await refreshHistory();
-        const done = await waitForRun(started.id, { signal });
-        await refreshHistory();
+        let candidate = saved;
+        if (!candidate?.schedule) {
+          setSolving(true);
+          setSolvingLabel(`Solving scenario ${scenario}…`);
+          const started = await api.startRun({
+            instance_id: instance.id, scenario, seconds,
+            baseline_id: approved?.approved_run_id, label: `Scenario ${scenario}`,
+          });
+          await refreshHistory();
+          candidate = await waitForRun(started.id, { signal });
+          await refreshHistory();
+        }
         signal.throwIfAborted();
-        if (done.schedule && done.validation) setRun(done);
-        else
-          setError(
-            done.error ??
-              done.message ??
-              "No complete schedule found. Try another scenario or review the constraints.",
-          );
+        if (!available(candidate ?? null))
+          throw new Error(candidate?.error ?? candidate?.message ?? "This scenario has no feasible plan to use. The active plan is unchanged.");
+        await adoptRun(candidate!);
       } catch (e) {
-        if (!signal.aborted)
+        if (!signal.aborted) {
           setError(e instanceof Error ? e.message : "The scenario run failed.");
+          // A rejected adoption must never leave the UI presenting the new plan as active.
+          try {
+            const current = await api.plan(instance.id);
+            if (!signal.aborted) { setApproved(current); setRun(current.run); }
+          } catch { /* Keep the original error visible if storage is unavailable. */ }
+        }
       } finally {
         if (!signal.aborted) {
+          scenarioChange.current = null;
+          setSwitchingScenario(null);
           setSolving(false);
           setSolvingLabel("");
         }
       }
     },
-    [instance, solving, approved, history, batchPending, refreshHistory],
+    [instance, solving, approved, history, batchPending, refreshHistory, adoptRun],
   );
   const runWhatIf = useCallback<PlanState["runWhatIf"]>(
     async ({
@@ -305,10 +335,6 @@ export function PlanProvider({
       throw e;
     } finally { if (!operation.signal.aborted) { setSolving(false); setSolvingLabel(""); } }
   }, [selectInstance, launchAll]);
-  const backToSample = useCallback(async () => {
-    try { const demo = await api.demo(); setSampleId(demo.instance.id); await selectInstance(demo.instance.id); }
-    catch (e) { setError(e instanceof Error ? e.message : "Could not load the sample."); }
-  }, [selectInstance]);
   const plan = useMemo(
     () =>
       instance && run?.schedule && run.validation
@@ -327,6 +353,7 @@ export function PlanProvider({
         approved,
         solving: solving || batchPending,
         solvingLabel: solvingLabel || (batchPending ? "Solving uploaded scenarios…" : ""),
+        switchingScenario,
         history,
         refreshHistory,
         solveAll,
@@ -343,7 +370,7 @@ export function PlanProvider({
         runWhatIf,
         loadDemandBook,
         isSample: !instance || instance.id === (sampleId || "4614ef3b6b98b084"),
-        backToSample: () => { void backToSample(); },
+        backToSample: () => { void load(true); },
       }}
     >
       {children}

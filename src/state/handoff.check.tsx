@@ -110,15 +110,20 @@ try {
   assert(!adopted, "Progressive results must never auto-adopt");
   let extraSolve = false;
   api.startRun = async () => { extraSolve = true; return completed; };
+  api.adopt = async () => {
+    adopted = true;
+    return { instance_id: uploaded.id, approved_run_id: completed.id, revision: 1, commitments: [], run: completed };
+  };
   await act(async () => { await state!.switchScenario("C"); });
   assert(!extraSolve, "Selecting a saved scenario should not re-solve it");
+  assert(adopted && state!.approved?.approved_run_id === completed.id, "Selecting a scenario must adopt it immediately");
   const priorSignal = state!.signal;
   await act(async () => { await state!.selectInstance(uploaded.id); });
   assert(priorSignal.aborted && state!.run?.id === completed.id && state!.approved?.run === null, "Historical results must restore without adoption");
   api.history = async id => ({ instance_id: id, versions: [], latest: {} });
   await act(async () => { await state!.selectInstance("2222222222222222"); });
   assert(state!.run === null && !state!.solving, "Saved results leaked into another dataset");
-  console.log("ok   upload handoff: abort, unsolved state, restored approval, three-scenario queue, progressive results, saved scenario reuse, history, explicit adoption, visible errors");
+  console.log("ok   upload handoff: abort, unsolved state, restored approval, three-scenario queue, progressive results, saved scenario adoption, history, visible errors");
 } finally {
   await act(async () => view?.unmount());
   Object.assign(api, old);

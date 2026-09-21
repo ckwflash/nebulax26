@@ -95,17 +95,17 @@ export function Nav({ current, go }: { current: TabId; go: (t: TabId) => void })
   const askActive = current === "ask";
   return (
     <nav
+      className="rail-nav" aria-label="Main navigation"
       style={{
-        width: 232,
         height: "100%",
         background: "#0f1f3d",
         display: "flex",
         flexDirection: "column",
-        padding: "16px 12px",
         flexShrink: 0,
       }}
     >
       <div
+        className="nav-brand"
         style={{
           display: "flex",
           alignItems: "center",
@@ -130,7 +130,7 @@ export function Nav({ current, go }: { current: TabId; go: (t: TabId) => void })
             <path d="M5 19L19 5M5 5h6M13 19h6M9 9l6 6" />
           </svg>
         </div>
-        <div style={{ display: "flex", flexDirection: "column" }}>
+        <div className="nav-brand-label">
           <span style={{ color: "#fff", fontWeight: 700, fontSize: 15, letterSpacing: "-.01em" }}>RailPlan</span>
           <span style={{ color: "#7f8ca6", fontSize: 10.5, fontWeight: 500, letterSpacing: ".08em" }}>
             ACCESS PLANNING
@@ -146,6 +146,7 @@ export function Nav({ current, go }: { current: TabId; go: (t: TabId) => void })
               {s.items.map((id) => (
                 <button
                   key={id}
+                  aria-label={LABEL[id]} title={LABEL[id]}
                   className={"nav-link" + (current === id ? " active" : "")}
                   onClick={() => go(id)}
                 >
@@ -159,6 +160,7 @@ export function Nav({ current, go }: { current: TabId; go: (t: TabId) => void })
       </div>
 
       <button
+        className="nav-ask" aria-label="Ask RailPlan" title="Ask RailPlan"
         onClick={() => go("ask")}
         style={{
           display: "flex",
@@ -196,11 +198,11 @@ export function Nav({ current, go }: { current: TabId; go: (t: TabId) => void })
             <path d="M12 8v3M12 13v.5" />
           </svg>
         </span>
-        <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15, flex: 1 }}>
+        <div className="nav-ask-label" style={{ lineHeight: 1.15, flex: 1 }}>
           <span style={{ fontSize: 13.5, fontWeight: 700 }}>Ask RailPlan</span>
           <span style={{ fontSize: 10.5, opacity: 0.85 }}>Any question about the plan</span>
         </div>
-        <span style={{ fontSize: 17, opacity: 0.9 }}>›</span>
+        <span className="nav-ask-chevron" style={{ fontSize: 17, opacity: 0.9 }}>›</span>
       </button>
 
       <div
@@ -213,14 +215,14 @@ export function Nav({ current, go }: { current: TabId; go: (t: TabId) => void })
         }}
       >
         {/* Settings and Help are deliberately inert. */}
-        <a className="nav-link" href="#settings" onClick={(e) => e.preventDefault()}>
+        <a className="nav-link" aria-label="Settings" title="Settings" href="#settings" onClick={(e) => e.preventDefault()}>
           <svg {...ico}>
             <circle cx="12" cy="12" r="3" />
             <path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3.9a7 7 0 0 0-1.7-1L14.5 3h-5l-.4 2.5a7 7 0 0 0-1.7 1L5.1 5.6l-2 3.4L5.1 10.5a7 7 0 0 0 0 2L3.1 14l2 3.4 2.3-.9a7 7 0 0 0 1.7 1l.4 2.5h5l.4-2.5a7 7 0 0 0 1.7-1l2.3.9 2-3.4-2-1.5c.1-.3.1-.7.1-1z" />
           </svg>
           <span>Settings</span>
         </a>
-        <a className="nav-link" href="#help" onClick={(e) => e.preventDefault()}>
+        <a className="nav-link" aria-label="Help" title="Help" href="#help" onClick={(e) => e.preventDefault()}>
           <svg {...ico}>
             <circle cx="12" cy="12" r="9" />
             <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.7M12 17v.5" />
